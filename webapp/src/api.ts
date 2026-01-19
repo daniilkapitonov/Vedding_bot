@@ -29,7 +29,12 @@ async function req(path: string, method: string, body?: any) {
     body: body ? JSON.stringify(body) : undefined
   });
   if (!res.ok) throw new Error(await res.text());
-  return res.json();
+  const contentType = res.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    return res.json();
+  }
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
 }
 
 export const api = {
@@ -46,7 +51,12 @@ export const api = {
       body: JSON.stringify({ initData: resolvedInitData })
     });
     if (!res.ok) throw new Error(await res.text());
-    return res.json();
+    const contentType = res.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      return res.json();
+    }
+    const text = await res.text();
+    return text ? JSON.parse(text) : null;
   },
 
   getProfile: () => req("/api/profile", "GET"),
