@@ -25,7 +25,10 @@ export const api = {
   auth: async (initData: string) => {
     const res = await fetch(`${API_BASE}/api/auth/telegram`, {
       method: "POST",
-      headers: {"Content-Type":"application/json"},
+      headers: {
+        "Content-Type":"application/json",
+        "x-tg-initdata": initData
+      },
       body: JSON.stringify({ initData })
     });
     if (!res.ok) throw new Error(await res.text());

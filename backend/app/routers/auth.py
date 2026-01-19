@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
+import logging
 
 from ..schemas import TelegramAuthIn, MeOut
 from ..db import get_db
@@ -8,12 +9,19 @@ from ..config import settings
 from ..services.telegram_auth import verify_telegram_init_data
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+logger = logging.getLogger(__name__)
 
 @router.post("/telegram", response_model=MeOut)
-def auth_telegram(body: TelegramAuthIn, db: Session = Depends(get_db)):
+def auth_telegram(
+    body: TelegramAuthIn,
+    x_tg_initdata: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    init_data = body.initData or x_tg_initdata or ""
     try:
-        user = verify_telegram_init_data(body.initData, settings.BOT_TOKEN)
+        user = verify_telegram_init_data(init_data, settings.BOT_TOKEN)
     except ValueError as e:
+        logger.warning("auth_telegram failed: %s (len=%s)", str(e), len(init_data))
         raise HTTPException(status_code=401, detail=str(e))
 
     tg_id = int(user["id"])

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from datetime import date
+import logging
 
 from ..db import get_db
 from ..models import Guest, Profile, ChangeLog
@@ -10,11 +11,13 @@ from ..services.telegram_auth import verify_telegram_init_data
 from ..services.notifier import notify_admins
 
 router = APIRouter(prefix="/api", tags=["profile"])
+logger = logging.getLogger(__name__)
 
 def _guest_from_initdata(initdata: str, db: Session) -> Guest:
     try:
         user = verify_telegram_init_data(initdata, settings.BOT_TOKEN)
     except ValueError as e:
+        logger.warning("profile auth failed: %s (len=%s)", str(e), len(initdata or ""))
         raise HTTPException(401, str(e))
     tg_id = int(user["id"])
     guest = db.query(Guest).filter(Guest.telegram_user_id == tg_id).one_or_none()
