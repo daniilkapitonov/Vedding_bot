@@ -8,14 +8,16 @@ def main_kb(webapp_url: str):
 def admin_kb():
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     kb.add(KeyboardButton("Гости"), KeyboardButton("Инфо о мероприятии"))
-    kb.add(KeyboardButton("Удалить гостя"))
+    kb.add(KeyboardButton("Удалить гостя"), KeyboardButton("Где БД?"))
+    kb.add(KeyboardButton("Очистить базу"))
     return kb
 
 def admin_main_kb(webapp_url: str):
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     kb.add(KeyboardButton("Открыть свадебное приложение", web_app=WebAppInfo(url=webapp_url)))
     kb.add(KeyboardButton("Гости"), KeyboardButton("Инфо о мероприятии"))
-    kb.add(KeyboardButton("Удалить гостя"))
+    kb.add(KeyboardButton("Удалить гостя"), KeyboardButton("Где БД?"))
+    kb.add(KeyboardButton("Очистить базу"))
     return kb
 
 def guests_inline_kb(page: int, rsvp: str | None, q: str | None, has_prev: bool, has_next: bool):

@@ -107,3 +107,7 @@ export async function inviteFamily(telegramId: number, fullName: string) {
 export async function familyStatus() {
   return req("/api/family/status", "GET");
 }
+
+export async function sendQuestion(text: string) {
+  return req("/api/questions", "POST", { text });
+}

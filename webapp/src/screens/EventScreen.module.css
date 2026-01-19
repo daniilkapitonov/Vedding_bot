@@ -15,14 +15,13 @@
   font-size: 14px;
 }
 
-.mapPlaceholder {
+.mapContainer {
   margin: 12px 0;
-  height: 120px;
+  height: 220px;
   border-radius: var(--r-card);
-  background: linear-gradient(135deg, rgba(255,255,255,0.4), rgba(255,255,255,0.2));
-  display: grid;
-  place-items: center;
-  color: var(--text-muted);
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.18);
 }
 
 .secondaryBtn {

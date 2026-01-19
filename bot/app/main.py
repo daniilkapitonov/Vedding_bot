@@ -52,6 +52,8 @@ def render_guests(chat_id: int, page: int = 1, rsvp: str | None = None, q: str |
     items = data.get("items", [])
     total = data.get("total", 0)
     text_lines = [f"<b>Гости</b> (стр. {data.get('page')}, всего {total})"]
+    if total == 0:
+        text_lines.append("В dev БД может быть пустой. В prod БД хранится в backend/data/app.db (bind-mount).")
     for it in items:
         text_lines.append(
             f"#{it['guest_id']} — {it.get('name') or '—'} | RSVP: {it.get('rsvp')}"
@@ -116,6 +118,59 @@ def admin_event_info(m: Message):
 def admin_delete_guest(m: Message):
     bot.send_message(m.chat.id, "Введите ID гостя или текст для поиска.")
     ADMIN_STATE[m.chat.id] = {"mode": "delete_lookup"}
+
+@bot.message_handler(func=lambda m: is_admin(m.from_user.id) and m.text == "Где БД?")
+def admin_db_info(m: Message):
+    bot.send_message(
+        m.chat.id,
+        "БД SQLite хранится в backend/data/app.db.\n"
+        "В prod это файл на сервере (bind-mount), в git он не хранится.\n"
+        "В dev БД может быть пустой/отсутствовать до первого запуска."
+    )
+
+@bot.message_handler(func=lambda m: is_admin(m.from_user.id) and m.text == "Очистить базу")
+def admin_clear_db(m: Message):
+    kb = InlineKeyboardMarkup()
+    kb.add(InlineKeyboardButton("Да, продолжить", callback_data="clear_db:step1"))
+    kb.add(InlineKeyboardButton("Нет", callback_data="clear_db:cancel"))
+    bot.send_message(m.chat.id, "Вы уверены? Это удалит всех гостей и анкеты. Продолжить?", reply_markup=kb)
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("clear_db:"))
+def clear_db_cb(c):
+    if not is_admin(c.from_user.id):
+        return
+    step = c.data.split(":", 1)[1]
+    if step == "cancel":
+        bot.send_message(c.message.chat.id, "Отменено.")
+        return
+    if step == "step1":
+        kb = InlineKeyboardMarkup()
+        kb.add(InlineKeyboardButton("Удалить ВСЕ", callback_data="clear_db:step2"))
+        kb.add(InlineKeyboardButton("Нет", callback_data="clear_db:cancel"))
+        bot.send_message(
+            c.message.chat.id,
+            "Последнее подтверждение: удалить ВСЕ данные без возможности восстановления?",
+            reply_markup=kb
+        )
+        return
+    if step == "step2":
+        res = api_post("/api/admin/clear-db", {})
+        if res.ok:
+            data = res.json()
+            bot.send_message(
+                c.message.chat.id,
+                "База очищена.\n"
+                f"guests: {data.get('guests')}\n"
+                f"profiles: {data.get('profiles')}\n"
+                f"groups: {data.get('groups')}\n"
+                f"group_members: {data.get('group_members')}\n"
+                f"family_groups: {data.get('family_groups')}\n"
+                f"invite_tokens: {data.get('invite_tokens')}\n"
+                f"change_log: {data.get('change_log')}"
+            )
+        else:
+            bot.send_message(c.message.chat.id, "Не удалось очистить базу.")
+        return
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("guests:"))
 def guests_filter_cb(c):

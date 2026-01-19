@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./EventScreen.module.css";
 import { GlassCard } from "../components/GlassCard";
 import { FrostedHeader } from "../components/FrostedHeader";
@@ -7,6 +7,7 @@ import { ModalSheet } from "../components/ModalSheet";
 import { BottomBar } from "../components/bottombar";
 import { Toast } from "../components/Toast";
 import { openLink, openTelegramLink } from "../utils/telegram";
+import { sendQuestion } from "../api";
 
 const WEDDING_ISO = "2026-07-25T16:00:00+03:00";
 
@@ -15,6 +16,8 @@ export function EventScreen(props: { onBack: () => void; onMenu: (rect: DOMRect)
   const [askOpen, setAskOpen] = useState(false);
   const [toast, setToast] = useState("");
   const [toastVariant, setToastVariant] = useState<"ok" | "error">("ok");
+  const [question, setQuestion] = useState("");
+  const mapRef = useRef<HTMLDivElement | null>(null);
 
   const locationName = "La Provincia";
   const locationAddress = "Калужская площадь, 1, стр. 4";
@@ -44,6 +47,20 @@ export function EventScreen(props: { onBack: () => void; onMenu: (rect: DOMRect)
     }
   }
 
+  useEffect(() => {
+    const container = mapRef.current;
+    if (!container) return;
+    container.innerHTML = "";
+    const script = document.createElement("script");
+    script.async = true;
+    script.charset = "utf-8";
+    script.src = "https://api-maps.yandex.ru/services/constructor/1.0/js/?um=constructor%3Ab0b94f16c23bda1e16a4c603476f8b802833b55f665d0cafa83c9d467c00ba24&width=100%25&height=220&lang=ru_RU&scroll=true";
+    container.appendChild(script);
+    return () => {
+      container.innerHTML = "";
+    };
+  }, []);
+
   return (
     <div className={styles.page}>
       <FrostedHeader
@@ -58,7 +75,7 @@ export function EventScreen(props: { onBack: () => void; onMenu: (rect: DOMRect)
       <main className={styles.content}>
         <GlassCard title="Локация" subtitle={locationName}>
           <div className={styles.text}>Адрес: {locationAddress}</div>
-          <div className={styles.mapPlaceholder}>Карта</div>
+          <div className={styles.mapContainer} ref={mapRef} />
           <button className={styles.secondaryBtn} onClick={() => openLink(locationLink)}>Открыть маршрут</button>
         </GlassCard>
 
@@ -117,8 +134,33 @@ export function EventScreen(props: { onBack: () => void; onMenu: (rect: DOMRect)
       </main>
 
       <ModalSheet open={askOpen} onClose={() => setAskOpen(false)} title="Вопрос">
-        <textarea className={styles.textarea} placeholder="Ваш вопрос..." />
-        <button className={styles.submitBtn}>Отправить</button>
+        <textarea
+          className={styles.textarea}
+          placeholder="Ваш вопрос..."
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+        />
+        <button
+          className={styles.submitBtn}
+          onClick={async () => {
+            const text = question.trim();
+            if (!text) return;
+            try {
+              await sendQuestion(text);
+              setToastVariant("ok");
+              setToast("Отправлено");
+              setQuestion("");
+              setAskOpen(false);
+            } catch {
+              setToastVariant("error");
+              setToast("Не удалось отправить");
+            } finally {
+              setTimeout(() => setToast(""), 2200);
+            }
+          }}
+        >
+          Отправить
+        </button>
       </ModalSheet>
       <Toast message={toast} variant={toastVariant} />
       <BottomBar

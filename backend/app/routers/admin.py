@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..models import Guest, Profile, EventInfo, Group, GroupMember
+from ..models import Guest, Profile, EventInfo, Group, GroupMember, FamilyGroup, InviteToken, ChangeLog
 from ..schemas import AdminEventInfoIn, BroadcastIn
 from ..config import settings
 from ..services.telegram_auth import verify_telegram_init_data
@@ -114,3 +114,29 @@ def delete_guest(
     db.delete(guest)
     db.commit()
     return {"ok": True}
+
+@router.post("/clear-db")
+def clear_db(
+    x_tg_initdata: str | None = Header(default=None),
+    x_internal_secret: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    _assert_admin_or_internal(x_tg_initdata, x_internal_secret)
+    counts = {
+        "guests": db.query(Guest).count(),
+        "profiles": db.query(Profile).count(),
+        "groups": db.query(Group).count(),
+        "group_members": db.query(GroupMember).count(),
+        "family_groups": db.query(FamilyGroup).count(),
+        "invite_tokens": db.query(InviteToken).count(),
+        "change_log": db.query(ChangeLog).count(),
+    }
+    with db.begin():
+        db.query(ChangeLog).delete()
+        db.query(InviteToken).delete()
+        db.query(GroupMember).delete()
+        db.query(Group).delete()
+        db.query(Profile).delete()
+        db.query(Guest).delete()
+        db.query(FamilyGroup).delete()
+    return counts
