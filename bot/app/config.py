@@ -1,6 +1,6 @@
 import os
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8375195280:AAElluPMaru3gO1d1I-i7VVSLHKO_5K_ROg")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "_____")
 ADMIN_IDS = {int(x.strip()) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip()}
 WEBAPP_URL = os.getenv("WEBAPP_URL", "https://example.com")
 API_BASE_URL = os.getenv("API_BASE_URL", "http://backend:8000")
