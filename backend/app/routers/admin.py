@@ -133,14 +133,14 @@ def clear_db(
         "invite_tokens": db.query(InviteToken).count(),
         "change_log": db.query(ChangeLog).count(),
     }
-    with db.begin():
-        db.query(ChangeLog).delete()
-        db.query(InviteToken).delete()
-        db.query(GroupMember).delete()
-        db.query(Group).delete()
-        db.query(Profile).delete()
-        db.query(Guest).delete()
-        db.query(FamilyGroup).delete()
+    db.query(ChangeLog).delete()
+    db.query(InviteToken).delete()
+    db.query(GroupMember).delete()
+    db.query(Group).delete()
+    db.query(Profile).delete()
+    db.query(Guest).delete()
+    db.query(FamilyGroup).delete()
+    db.commit()
     return counts
 
 @router.get("/db-health")
