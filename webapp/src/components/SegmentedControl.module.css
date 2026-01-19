@@ -1,0 +1,51 @@
+.wrap {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.btn {
+  border: 1px solid rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.35);
+  color: var(--text-primary);
+  border-radius: var(--r-pill);
+  padding: 12px 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: var(--shadow-1);
+  transition: transform 120ms ease, box-shadow 160ms ease;
+  text-align: center;
+  line-height: 1.1;
+  min-height: 52px;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btnActive {
+  border: 1px solid rgba(176,138,96,0.55);
+  background: transparent;
+  color: #6b5a4c;
+  box-shadow: 0 8px 16px rgba(122,87,60,0.12);
+}
+
+.btn {
+  position: relative;
+  z-index: 1;
+}
+
+.mark {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(176,138,96,0.7);
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.35);
+}

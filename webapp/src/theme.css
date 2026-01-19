@@ -1,0 +1,20 @@
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Manrope:wght@400;500;600&display=swap");
+
+:root{
+  color-scheme: light;
+  --tg-bg: #f5e9dc;
+  --tg-text: #6c4a33;
+  --tg-hint: rgba(108, 74, 51, 0.7);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family: "Manrope", "Segoe UI", sans-serif;
+  background: #e8d3bf;
+  color: var(--tg-text);
+  display: flex;
+  justify-content: center;
+}
+a{color:inherit}
+button{font:inherit}

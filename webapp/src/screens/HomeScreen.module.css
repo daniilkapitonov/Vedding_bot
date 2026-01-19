@@ -1,0 +1,202 @@
+.page {
+  min-height: 100vh;
+  padding-bottom: 110px;
+}
+
+.content {
+  padding: var(--page-x);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--gap) + 6px);
+  padding-bottom: 56px;
+}
+
+.heroWrap {
+  border-radius: 24px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.32);
+  background: rgba(255,255,255,0.18);
+}
+
+.heroImage {
+  width: 100%;
+  height: 210px;
+  object-fit: cover;
+  display: block;
+}
+
+.heroTitle {
+  margin-top: 16px;
+  text-align: center;
+  color: var(--accent-terrac);
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.infoText {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.infoButton {
+  height: 46px;
+  border-radius: var(--r-pill);
+  border: 1px solid rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.3);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.rsvpHint {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.rsvpStatus {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.formGrid {
+  display: grid;
+  gap: 14px;
+}
+
+.input {
+  width: 100%;
+  border: 1px solid rgba(255,255,255,0.28);
+  background: rgba(255,255,255,0.28);
+  border-radius: var(--r-input);
+  padding: 12px 14px;
+  color: var(--text-primary);
+  box-shadow: 0 10px 20px rgba(122,87,60,0.12);
+  outline: none;
+}
+
+.textarea {
+  width: 100%;
+  border: 1px solid rgba(255,255,255,0.28);
+  background: rgba(255,255,255,0.28);
+  border-radius: var(--r-input);
+  padding: 12px 14px;
+  color: var(--text-primary);
+  box-shadow: 0 10px 20px rgba(122,87,60,0.12);
+  min-height: 90px;
+  resize: vertical;
+}
+
+.inlineField {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+}
+
+.subSection {
+  margin-top: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.subTitle {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.moreButton {
+  margin: 14px auto 0;
+  height: 46px;
+  border-radius: var(--r-pill);
+  border: 1px solid rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.22);
+  color: var(--text-secondary);
+  font-weight: 600;
+  min-width: 220px;
+  display: block;
+}
+
+.expandArea {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 280ms ease, opacity 260ms ease;
+}
+
+.expandOpen {
+  max-height: 900px;
+  opacity: 1;
+}
+
+.expandInner {
+  margin-top: 14px;
+  display: grid;
+  gap: 14px;
+}
+
+.stickyAction {
+  position: sticky;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  padding: 0 var(--page-x) 6px;
+  display: flex;
+  justify-content: center;
+  background: transparent;
+}
+
+.saveButton {
+  width: 100%;
+  height: 56px;
+  border-radius: var(--r-pill);
+  border: none;
+  background: linear-gradient(135deg, rgba(156,122,90,0.82), rgba(122,87,60,0.82));
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 14px 22px rgba(122,87,60,0.2);
+  opacity: 0.9;
+}
+
+.saveButton:disabled {
+  opacity: 0.7;
+}
+
+.confirmText {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.confirmActions {
+  display: grid;
+  gap: 10px;
+}
+
+.confirmPrimary {
+  height: 48px;
+  border-radius: var(--r-pill);
+  border: none;
+  background: linear-gradient(135deg, var(--btn-primary-a), var(--btn-primary-b));
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 16px 28px rgba(122,87,60,0.25);
+}
+
+.confirmSecondary {
+  height: 48px;
+  border-radius: var(--r-pill);
+  border: 1px solid rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.22);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}

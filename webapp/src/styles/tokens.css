@@ -1,0 +1,49 @@
+:root {
+  --bg-base: #F1DECB;
+  --bg-depth: #E6CDB2;
+  --bg-spot1: #F3E1CF;
+  --bg-spot2: #E9D1B8;
+
+  --glass-fill: rgba(255,255,255,0.45);
+  --glass-fill2: rgba(255,255,255,0.35);
+  --glass-border: rgba(255,255,255,0.35);
+  --glass-highlight: rgba(255,255,255,0.60);
+
+  --header-fill: rgba(55,48,43,0.55);
+  --overlay-dim: rgba(20,16,14,0.45);
+
+  --text-primary: #3A2F28;
+  --text-secondary: #6B5A4C;
+  --text-muted: rgba(58,47,40,0.55);
+  --text-inverse: #F4E6D8;
+  --text-inverse2: rgba(244,230,216,0.72);
+
+  --accent-olive: #6F7B5A;
+  --accent-emerald: #5E7C6D;
+  --accent-terrac: #8A5A3C;
+  --accent-gold: #B08A60;
+
+  --btn-primary-a: #9C7A5A;
+  --btn-primary-b: #7A573C;
+  --btn-success-a: #6F7B5A;
+  --btn-success-b: #5E7C6D;
+  --btn-surface: rgba(255,255,255,0.40);
+
+  --shadow-1: 0 10px 24px rgba(0,0,0,0.10);
+  --shadow-2: 0 20px 40px rgba(0,0,0,0.12);
+  --shadow-btn: 0 20px 40px rgba(122,87,60,0.35);
+
+  --blur-card: 14px;
+  --blur-header: 16px;
+
+  --r-card: 28px;
+  --r-input: 18px;
+  --r-pill: 999px;
+  --r-icon: 999px;
+
+  --page-x: 18px;
+  --gap: 14px;
+  --card-pad: 18px;
+
+  color-scheme: light;
+}

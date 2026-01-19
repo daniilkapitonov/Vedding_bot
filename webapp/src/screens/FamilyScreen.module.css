@@ -1,0 +1,134 @@
+.page {
+  min-height: 100vh;
+  padding-bottom: 110px;
+}
+
+.content {
+  padding: var(--page-x);
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.toggle {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.grid {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.partnerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.partnerTitle {
+  font-weight: 600;
+}
+
+.badge {
+  padding: 6px 10px;
+  border-radius: var(--r-pill);
+  border: 1px solid rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.35);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.badgeOk {
+  background: rgba(111,123,90,0.18);
+  border-color: rgba(111,123,90,0.28);
+  color: #55624a;
+}
+
+.badgePending {
+  color: var(--text-secondary);
+}
+
+.input,
+.textarea {
+  width: 100%;
+  border: 1px solid rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.35);
+  border-radius: var(--r-input);
+  padding: 12px 14px;
+  color: var(--text-primary);
+  box-shadow: var(--shadow-1);
+}
+
+.textarea {
+  min-height: 80px;
+}
+
+.inviteBtn {
+  height: 46px;
+  border-radius: var(--r-pill);
+  border: 1px solid rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.28);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.inviteBtn:disabled {
+  opacity: 0.6;
+}
+
+.addBtn {
+  margin-top: 8px;
+  height: 46px;
+  border-radius: var(--r-pill);
+  border: 1px solid rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.35);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.childrenList {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.childRow {
+  display: grid;
+  gap: 8px;
+}
+
+.childHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.childTitle {
+  font-weight: 600;
+}
+
+.removeBtn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.saveBtn {
+  height: 54px;
+  border-radius: var(--r-pill);
+  border: none;
+  background: linear-gradient(135deg, var(--btn-primary-a), var(--btn-primary-b));
+  color: #fff;
+  font-weight: 700;
+  box-shadow: var(--shadow-btn);
+}

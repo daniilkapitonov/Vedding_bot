@@ -1,0 +1,26 @@
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.chip {
+  padding: 10px 14px;
+  border-radius: var(--r-pill);
+  border: 1px solid rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.30);
+  color: var(--text-secondary);
+  font-weight: 600;
+  transition: transform 120ms ease, box-shadow 160ms ease;
+}
+
+.chip:active {
+  transform: scale(0.98);
+}
+
+.chipOn {
+  background: linear-gradient(135deg, var(--accent-olive), var(--accent-emerald));
+  color: #fff;
+  border-color: rgba(255,255,255,0.12);
+  box-shadow: 0 16px 30px rgba(94,124,109,0.30);
+}

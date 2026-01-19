@@ -1,0 +1,50 @@
+.bar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  width: min(100%, 390px);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 12px var(--page-x) calc(16px + env(safe-area-inset-bottom));
+  background: transparent;
+  backdrop-filter: blur(6px);
+}
+
+.bar::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -24px;
+  height: 24px;
+  background: linear-gradient(180deg, rgba(241,222,203,0) 0%, rgba(241,222,203,0.6) 100%);
+  pointer-events: none;
+}
+
+.btn {
+  height: 56px;
+  border-radius: var(--r-pill);
+  border: 1px solid transparent;
+  background: rgba(255,255,255,0.22);
+  color: var(--text-secondary);
+  font-weight: 700;
+  box-shadow: 0 10px 20px rgba(122,87,60,0.14);
+}
+
+.btn:focus-visible {
+  outline: 2px solid rgba(176,138,96,0.45);
+  outline-offset: 2px;
+}
+
+.btnPrimary {
+  background: linear-gradient(135deg, rgba(156,122,90,0.78), rgba(122,87,60,0.78));
+  color: #fff;
+  box-shadow: 0 14px 24px rgba(122,87,60,0.2);
+}
+
+.btnSecondary {
+  background: rgba(255,255,255,0.32);
+  color: var(--text-secondary);
+}

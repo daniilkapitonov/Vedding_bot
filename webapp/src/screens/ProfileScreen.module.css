@@ -1,0 +1,88 @@
+.page {
+  min-height: 100vh;
+  padding-bottom: 110px;
+}
+
+.content {
+  padding: var(--page-x);
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.avatarWrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.avatarImg,
+.avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--r-pill);
+}
+
+.avatar {
+  background: rgba(255,255,255,0.35);
+  border: 1px solid rgba(255,255,255,0.4);
+  display: grid;
+  place-items: center;
+  color: var(--text-secondary);
+  line-height: 1;
+}
+
+.avatarImg {
+  object-fit: cover;
+  border: 1px solid rgba(255,255,255,0.4);
+  box-shadow: var(--shadow-1);
+}
+
+.heartIcon {
+  width: 28px;
+  height: 28px;
+  fill: currentColor;
+  display: block;
+  filter: drop-shadow(0 2px 6px rgba(94,124,109,0.28));
+  stroke: rgba(255,255,255,0.35);
+  stroke-width: 0.6px;
+}
+
+.avatarYes { color: #5f6f56; }
+.avatarNo { color: rgba(58,47,40,0.5); }
+.avatarMaybe { color: rgba(176,138,96,0.75); }
+
+.line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.line strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.status {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: var(--r-pill);
+  background: rgba(255,255,255,0.28);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.statusYes {
+  background: rgba(111,123,90,0.18);
+  border-color: rgba(111,123,90,0.28);
+  color: #55624a;
+}
+
+.mutedNote {
+  font-size: 14px;
+  color: var(--text-muted);
+}

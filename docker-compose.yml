@@ -1,0 +1,21 @@
+services:
+  backend:
+    build: ./backend
+    env_file: .env
+    volumes:
+      - ./backend/data:/app/data
+    ports:
+      - "8000:8000"
+
+  bot:
+    build: ./bot
+    env_file: .env
+    depends_on:
+      - backend
+
+  webapp:
+    build: ./webapp
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
