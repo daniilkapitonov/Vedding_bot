@@ -4,7 +4,7 @@ from sqlalchemy import text
 import os
 
 from ..db import get_db, engine
-from ..models import Guest, Profile, EventInfo, Group, GroupMember, FamilyGroup, InviteToken, ChangeLog
+from ..models import Guest, Profile, EventInfo, Group, GroupMember, FamilyGroup, InviteToken, ChangeLog, FamilyProfile
 from ..schemas import AdminEventInfoIn, BroadcastIn
 from ..config import settings
 from ..services.telegram_auth import verify_telegram_init_data
@@ -131,12 +131,14 @@ def clear_db(
         "group_members": db.query(GroupMember).count(),
         "family_groups": db.query(FamilyGroup).count(),
         "invite_tokens": db.query(InviteToken).count(),
+        "family_profiles": db.query(FamilyProfile).count(),
         "change_log": db.query(ChangeLog).count(),
     }
     db.query(ChangeLog).delete()
     db.query(InviteToken).delete()
     db.query(GroupMember).delete()
     db.query(Group).delete()
+    db.query(FamilyProfile).delete()
     db.query(Profile).delete()
     db.query(Guest).delete()
     db.query(FamilyGroup).delete()
@@ -162,6 +164,7 @@ def db_health(
         "profiles": db.query(Profile).count(),
         "family_groups": db.query(FamilyGroup).count(),
         "invite_tokens": db.query(InviteToken).count(),
+        "family_profiles": db.query(FamilyProfile).count(),
     }
     return {
         "path": db_path,

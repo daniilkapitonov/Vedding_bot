@@ -12,6 +12,7 @@ export type TelegramWebApp = {
   ready?: () => void;
   HapticFeedback?: { impactOccurred: (style: "light" | "medium" | "heavy") => void };
   initDataUnsafe?: { user?: TelegramUser };
+  initData?: string;
   openLink?: (url: string) => void;
   openTelegramLink?: (url: string) => void;
 };

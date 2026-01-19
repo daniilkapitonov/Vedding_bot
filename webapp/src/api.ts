@@ -4,16 +4,27 @@ export function tgInitData(): string {
   return w?.initData || "";
 }
 
+export function getInviteToken(): string {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("invite") || "";
+  } catch {
+    return "";
+  }
+}
+
 const rawBase = (import.meta as any).env?.VITE_API_URL || "";
 const API_BASE = rawBase.endsWith("/") ? rawBase.slice(0, -1) : rawBase;
 
 async function req(path: string, method: string, body?: any) {
   const initData = tgInitData();
+  const inviteToken = initData ? "" : getInviteToken();
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers: {
       "Content-Type": "application/json",
-      "x-tg-initdata": initData
+      "x-tg-initdata": initData,
+      ...(inviteToken ? { "x-invite-token": inviteToken } : {})
     },
     body: body ? JSON.stringify(body) : undefined
   });
@@ -22,14 +33,17 @@ async function req(path: string, method: string, body?: any) {
 }
 
 export const api = {
-  auth: async (initData: string) => {
+  auth: async (initData?: string) => {
+    const resolvedInitData = initData || tgInitData();
+    const inviteToken = resolvedInitData ? "" : getInviteToken();
     const res = await fetch(`${API_BASE}/api/auth/telegram`, {
       method: "POST",
       headers: {
         "Content-Type":"application/json",
-        "x-tg-initdata": initData
+        "x-tg-initdata": resolvedInitData,
+        ...(inviteToken ? { "x-invite-token": inviteToken } : {})
       },
-      body: JSON.stringify({ initData })
+      body: JSON.stringify({ initData: resolvedInitData })
     });
     if (!res.ok) throw new Error(await res.text());
     return res.json();
@@ -63,47 +77,25 @@ export type FamilyPayload = {
   children: Array<{ id: string; name: string; age: string; note: string }>;
 };
 
-export async function saveTempProfile(telegramId: number, data: TempProfile) {
-  const res = await fetch(`${API_BASE}/profile/save`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ telegram_id: telegramId, data })
+export async function saveFamily(data: FamilyPayload) {
+  return req("/api/family/save", "POST", {
+    with_partner: data.withPartner,
+    partner_name: data.partnerName || null,
+    children: data.children || []
   });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
 }
 
-export async function loadTempProfile(telegramId: number): Promise<TempProfile | null> {
-  const res = await fetch(`${API_BASE}/profile/${telegramId}`);
-  if (!res.ok) return null;
-  const json = await res.json();
-  return json?.data || null;
+export async function loadFamily() {
+  const res = await req("/api/family/me", "GET");
+  return {
+    withPartner: Boolean(res?.with_partner),
+    partnerName: res?.partner_name || "",
+    children: res?.children || []
+  } as FamilyPayload;
 }
 
-export async function saveFamily(telegramId: number, data: FamilyPayload) {
-  const res = await fetch(`${API_BASE}/family/save`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ telegram_id: telegramId, data })
-  });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
-}
-
-export async function loadFamily(telegramId: number) {
-  const res = await fetch(`${API_BASE}/family/${telegramId}`);
-  if (!res.ok) return null;
-  return res.json();
-}
-
-export async function inviteFamily(telegramId: number, fullName: string) {
-  const res = await fetch(`${API_BASE}/family/invite`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ telegram_id: telegramId, full_name: fullName })
-  });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
+export async function inviteFamily(fullName: string) {
+  return req("/api/family/invite-by-name", "POST", { full_name: fullName });
 }
 
 export async function familyStatus() {

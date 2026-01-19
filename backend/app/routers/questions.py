@@ -1,9 +1,12 @@
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Depends
 import logging
 
+from sqlalchemy.orm import Session
+
 from ..config import settings
-from ..services.telegram_auth import verify_telegram_init_data
+from ..services.telegram_auth import verify_telegram_init_data, get_guest_from_invite
 from ..services.notifier import send_admin_message
+from ..db import get_db
 
 router = APIRouter(prefix="/api/questions", tags=["questions"])
 logger = logging.getLogger(__name__)
@@ -14,7 +17,7 @@ def _build_sender_link(user: dict) -> str:
     user_id = user.get("id")
     if username:
         return f"https://t.me/{username}"
-    if user_id:
+    if user_id and user_id > 0:
         return f"tg://user?id={user_id}"
     return ""
 
@@ -23,11 +26,29 @@ def _build_sender_link(user: dict) -> str:
 async def send_question(
     body: dict,
     x_tg_initdata: str | None = Header(default=None),
+    x_invite_token: str | None = Header(default=None),
+    db: Session = Depends(get_db),
 ):
-    if not x_tg_initdata:
+    user: dict | None = None
+    if x_tg_initdata:
+        try:
+            user = verify_telegram_init_data(x_tg_initdata, settings.BOT_TOKEN)
+        except ValueError as e:
+            logger.warning("questions: invalid initData (%s)", str(e))
+            raise HTTPException(401, str(e))
+    elif x_invite_token:
+        try:
+            guest = get_guest_from_invite(x_invite_token, db)
+            name = guest.first_name or ""
+            if guest.last_name:
+                name = f"{name} {guest.last_name}".strip()
+            user = {"id": guest.telegram_user_id, "first_name": name or "Гость"}
+        except Exception:
+            logger.warning("questions: invalid invite token")
+            raise HTTPException(401, "Invalid invite token")
+    if not user:
         logger.warning("questions: missing initData")
         raise HTTPException(401, "Missing initData")
-    user = verify_telegram_init_data(x_tg_initdata, settings.BOT_TOKEN)
     text = (body.get("text") or "").strip()
     if not text:
         logger.warning("questions: empty text")

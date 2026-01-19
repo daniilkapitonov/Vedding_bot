@@ -84,6 +84,19 @@ class InviteToken(Base):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
+class FamilyProfile(Base):
+    __tablename__ = "family_profiles"
+    __table_args__ = (UniqueConstraint("guest_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    guest_id: Mapped[int] = mapped_column(ForeignKey("guests.id"), index=True)
+
+    with_partner: Mapped[bool] = mapped_column(Boolean, default=False)
+    partner_name: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    children_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
 class Group(Base):
     __tablename__ = "groups"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

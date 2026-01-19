@@ -1,7 +1,10 @@
 import hmac, hashlib, urllib.parse
 from typing import Dict, Any
+from datetime import datetime
+from sqlalchemy.orm import Session
 
 from ..config import settings
+from ..models import InviteToken, Guest, Profile
 
 def _parse_init_data(init_data: str) -> Dict[str, str]:
     parsed = dict(urllib.parse.parse_qsl(init_data, strict_parsing=True))
@@ -36,3 +39,28 @@ def verify_telegram_init_data(init_data: str, bot_token: str) -> Dict[str, Any]:
     import json
     user = json.loads(data["user"])
     return user
+
+def get_guest_from_invite(token: str, db: Session) -> Guest:
+    invite = db.query(InviteToken).filter(InviteToken.token == token).one_or_none()
+    if not invite:
+        raise ValueError("Invite not found")
+    if invite.expires_at and invite.expires_at < datetime.utcnow():
+        raise ValueError("Invite expired")
+
+    if invite.used_by_guest_id:
+        guest = db.query(Guest).filter(Guest.id == invite.used_by_guest_id).one_or_none()
+        if guest:
+            return guest
+
+    pseudo_id = -invite.id
+    guest = db.query(Guest).filter(Guest.telegram_user_id == pseudo_id).one_or_none()
+    if not guest:
+        guest = Guest(telegram_user_id=pseudo_id, family_group_id=invite.family_group_id)
+        db.add(guest)
+        db.flush()
+        db.add(Profile(guest_id=guest.id))
+    invite.used_by_guest_id = guest.id
+    db.add(invite)
+    db.commit()
+    db.refresh(guest)
+    return guest

@@ -8,7 +8,7 @@ import { ChipsMultiSelect } from "../components/ChipsMultiSelect";
 import { BottomBar } from "../components/bottombar";
 import { daysUntil } from "../utils/date";
 import { ModalSheet } from "../components/ModalSheet";
-import { api, tgInitData, TempProfile } from "../api";
+import { api, tgInitData, TempProfile, getInviteToken } from "../api";
 import coupleImage from "../assets/married-people.png";
 import { Toast } from "../components/Toast";
 import { getTelegramUser } from "../utils/telegram";
@@ -139,8 +139,9 @@ export function HomeScreen(props: {
       }});
     }
     const initData = tgInitData();
-    if (initData) {
-      api.auth(initData).then(() => api.getProfile()).then((remote: any) => {
+    const inviteToken = getInviteToken();
+    if (initData || inviteToken) {
+      api.auth().then(() => api.getProfile()).then((remote: any) => {
         if (!remote) return;
         dispatch({ type: "hydrate", value: {
           rsvp: remote.rsvp_status || "yes",
@@ -189,7 +190,8 @@ export function HomeScreen(props: {
   async function saveProfileToBackend(payload: any, successMsg: string) {
     try {
       const initData = tgInitData();
-      if (!initData) {
+      const inviteToken = getInviteToken();
+      if (!initData && !inviteToken) {
         throw new Error("NO_INITDATA");
       }
       await api.saveProfile(payload);

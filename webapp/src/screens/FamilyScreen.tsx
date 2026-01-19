@@ -63,15 +63,6 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
   const [toastVariant, setToastVariant] = useState<"ok" | "error">("ok");
   const [members, setMembers] = useState<Array<{ name: string; rsvp: string }>>([]);
 
-  function getLocalId(): number {
-    const key = "wedding.telegram_id";
-    const raw = localStorage.getItem(key);
-    if (raw) return Number(raw);
-    const generated = 100000 + Math.floor(Math.random() * 900000);
-    localStorage.setItem(key, String(generated));
-    return generated;
-  }
-
   function saveLocalFamily(data: FamilyPayload) {
     localStorage.setItem("wedding.family", JSON.stringify(data));
   }
@@ -107,10 +98,14 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
     }
     const localInvite = loadLocalInvite();
     if (localInvite) setInvite(localInvite);
-    const telegramId = getLocalId();
-    loadFamily(telegramId).then((res: any) => {
-      if (res?.data) dispatch({ type: "hydrate", value: res.data });
-      if (res?.invite) setInvite(res.invite);
+    loadFamily().then((res: any) => {
+      if (res) {
+        dispatch({ type: "hydrate", value: {
+          withPartner: Boolean(res.withPartner),
+          partnerName: res.partnerName || "",
+          children: res.children || []
+        }});
+      }
     }).catch(() => {});
 
     familyStatus().then((res: any) => {
@@ -176,8 +171,7 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
                     setTimeout(() => setToast(""), 2200);
                     return;
                   }
-                  const telegramId = getLocalId();
-                  inviteFamily(telegramId, name)
+                  inviteFamily(name)
                     .then((res: any) => {
                       if (!res?.ok) {
                         setToastVariant("error");
@@ -185,13 +179,19 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
                         setTimeout(() => setToast(""), 2200);
                         return;
                       }
-                      setInvite(res.invite);
-                      saveLocalInvite(res.invite);
+                      setInvite({ status: "sent", confirmed: false });
                       setToastVariant("ok");
                       setToast("Приглашение отправлено");
                       setTimeout(() => setToast(""), 2000);
                     })
-                    .catch(() => {
+                    .catch((err: any) => {
+                      const msg = String(err?.message || "");
+                      if (msg.includes("Guest not found")) {
+                        setToastVariant("error");
+                        setToast("Такого гостя нет в списке");
+                        setTimeout(() => setToast(""), 2200);
+                        return;
+                      }
                       setToastVariant("error");
                       setToast("Не удалось отправить приглашение");
                       setTimeout(() => setToast(""), 2200);
@@ -246,7 +246,6 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
           disabled={saving}
           onClick={() => {
             setSaving(true);
-            const telegramId = getLocalId();
             const payload: FamilyPayload = {
               withPartner: state.withPartner,
               partnerName: state.partnerName,
@@ -254,7 +253,7 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
               children: state.children,
             };
             saveLocalFamily(payload);
-            saveFamily(telegramId, payload)
+            saveFamily(payload)
               .then(() => {
                 setToastVariant("ok");
                 setToast("Сохранено");

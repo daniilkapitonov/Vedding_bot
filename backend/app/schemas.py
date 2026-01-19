@@ -16,12 +16,12 @@ class ProfileIn(BaseModel):
 
     full_name: Optional[str] = None
     birth_date: Optional[date] = None
-    gender: Optional[str] = Field(default=None, pattern="^(male|female|other)?$")
+    gender: Optional[str] = Field(default=None, pattern="^(male|female|other|Мужской|Женский|Другое)?$")
     phone: Optional[str] = None
-    side: Optional[str] = Field(default=None, pattern="^(groom|bride|both)?$")
+    side: Optional[str] = Field(default=None, pattern="^(groom|bride|both|Жених|Невеста|Оба)?$")
     is_relative: bool = False
 
-    food_pref: Optional[str] = Field(default=None, pattern="^(fish|meat|vegan)?$")
+    food_pref: Optional[str] = Field(default=None, pattern="^(fish|meat|vegan|vegetarian|Мясо|Рыба|Вегетарианское|Веган)?$")
     food_allergies: Optional[str] = None
 
     alcohol_prefs: List[str] = []
@@ -78,3 +78,16 @@ class FamilyAcceptIn(BaseModel):
 class FamilyStatusOut(BaseModel):
     family_group_id: Optional[int] = None
     members: List[dict] = []
+
+class FamilySaveIn(BaseModel):
+    with_partner: bool = False
+    partner_name: Optional[str] = None
+    children: List[dict] = []
+
+class FamilyOut(BaseModel):
+    with_partner: bool = False
+    partner_name: Optional[str] = None
+    children: List[dict] = []
+
+class FamilyInviteByNameIn(BaseModel):
+    full_name: str

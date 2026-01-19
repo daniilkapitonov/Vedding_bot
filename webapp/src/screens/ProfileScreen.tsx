@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import styles from "./ProfileScreen.module.css";
 import { FrostedHeader } from "../components/FrostedHeader";
 import { GlassCard } from "../components/GlassCard";
-import { api, TempProfile, tgInitData } from "../api";
+import { api, TempProfile, tgInitData, getInviteToken } from "../api";
 import { getTelegramUser } from "../utils/telegram";
 import { BottomBar } from "../components/bottombar";
 
@@ -33,8 +33,9 @@ export function ProfileScreen(props: { onBack: () => void; onMenu: (rect: DOMRec
     const local = loadLocalProfile();
     if (local) setProfile(local);
     const initData = tgInitData();
-    if (initData) {
-      api.auth(initData).then(() => api.getProfile()).then((remote: any) => {
+    const inviteToken = getInviteToken();
+    if (initData || inviteToken) {
+      api.auth().then(() => api.getProfile()).then((remote: any) => {
         if (!remote) return;
         setProfile({
           rsvp: remote.rsvp_status || "unknown",

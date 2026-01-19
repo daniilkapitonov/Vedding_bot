@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from .db import Base, engine
-from .routers import auth, profile, event_info, admin, temp_profile, family, questions
+from .routers import auth, profile, event_info, admin, family, questions
 
 app = FastAPI(title="Wedding TG Backend")
 
@@ -22,16 +22,9 @@ app.include_router(auth.router)
 app.include_router(profile.router)
 app.include_router(event_info.router)
 app.include_router(admin.router)
-app.include_router(temp_profile.router)
 app.include_router(family.router)
 app.include_router(questions.router)
 
-# Legacy compatibility for older frontend builds (without /api prefix)
-app.add_api_route("/auth/telegram", auth.auth_telegram, methods=["POST"])
-app.add_api_route("/profile", profile.get_profile, methods=["GET"])
-app.add_api_route("/profile", profile.upsert_profile, methods=["POST"])
-app.add_api_route("/extra", profile.save_extra, methods=["POST"])
-app.add_api_route("/partner/link", profile.link_partner, methods=["POST"])
 
 def _ensure_family_group_column():
     if not engine.url.get_backend_name().startswith("sqlite"):

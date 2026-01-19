@@ -7,22 +7,47 @@ from ..db import get_db
 from ..models import Guest, Profile, ChangeLog
 from ..schemas import ProfileIn, ProfileOut, ExtraIn, PartnerLinkIn
 from ..config import settings
-from ..services.telegram_auth import verify_telegram_init_data
+from ..services.telegram_auth import verify_telegram_init_data, get_guest_from_invite
 from ..services.notifier import notify_admins
 
 router = APIRouter(prefix="/api", tags=["profile"])
 logger = logging.getLogger(__name__)
 
-def _guest_from_initdata(initdata: str, db: Session) -> Guest:
+def _guest_from_initdata(initdata: str | None, invite_token: str | None, db: Session) -> Guest:
     try:
-        user = verify_telegram_init_data(initdata, settings.BOT_TOKEN)
+        if initdata:
+            user = verify_telegram_init_data(initdata, settings.BOT_TOKEN)
+        elif invite_token:
+            return get_guest_from_invite(invite_token, db)
+        else:
+            raise ValueError("Missing initData")
     except ValueError as e:
+        if invite_token:
+            try:
+                return get_guest_from_invite(invite_token, db)
+            except ValueError as e2:
+                logger.warning("profile auth failed: %s (len=%s)", str(e2), len(initdata or ""))
+                raise HTTPException(401, str(e2))
         logger.warning("profile auth failed: %s (len=%s)", str(e), len(initdata or ""))
         raise HTTPException(401, str(e))
     tg_id = int(user["id"])
     guest = db.query(Guest).filter(Guest.telegram_user_id == tg_id).one_or_none()
     if not guest:
-        raise HTTPException(401, "Not registered")
+        guest = Guest(
+            telegram_user_id=tg_id,
+            username=user.get("username"),
+            first_name=user.get("first_name"),
+            last_name=user.get("last_name"),
+        )
+        db.add(guest)
+        db.flush()
+        db.add(Profile(guest_id=guest.id))
+        db.commit()
+        db.refresh(guest)
+    elif not guest.profile:
+        db.add(Profile(guest_id=guest.id))
+        db.commit()
+        db.refresh(guest)
     return guest
 
 def _split_csv(v: str | None) -> list[str]:
@@ -41,8 +66,12 @@ async def _log_change(db: Session, guest_id: int, field: str, old, new):
     await notify_admins("profile_changed", {"guest_id": guest_id, "field": field, "old": old, "new": new})
 
 @router.get("/profile", response_model=ProfileOut)
-def get_profile(x_tg_initdata: str = Header(...), db: Session = Depends(get_db)):
-    guest = _guest_from_initdata(x_tg_initdata, db)
+def get_profile(
+    x_tg_initdata: str | None = Header(default=None),
+    x_invite_token: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    guest = _guest_from_initdata(x_tg_initdata, x_invite_token, db)
     p = guest.profile
     return ProfileOut(
         rsvp_status=p.rsvp_status,
@@ -65,8 +94,13 @@ def get_profile(x_tg_initdata: str = Header(...), db: Session = Depends(get_db))
     )
 
 @router.post("/profile", response_model=ProfileOut)
-async def upsert_profile(body: ProfileIn, x_tg_initdata: str = Header(...), db: Session = Depends(get_db)):
-    guest = _guest_from_initdata(x_tg_initdata, db)
+async def upsert_profile(
+    body: ProfileIn,
+    x_tg_initdata: str | None = Header(default=None),
+    x_invite_token: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    guest = _guest_from_initdata(x_tg_initdata, x_invite_token, db)
     p: Profile = guest.profile
 
     # RSVP=No => only store minimal and lock in UI logic
@@ -105,8 +139,13 @@ async def upsert_profile(body: ProfileIn, x_tg_initdata: str = Header(...), db: 
     return get_profile(x_tg_initdata, db)
 
 @router.post("/extra", response_model=ProfileOut)
-async def save_extra(body: ExtraIn, x_tg_initdata: str = Header(...), db: Session = Depends(get_db)):
-    guest = _guest_from_initdata(x_tg_initdata, db)
+async def save_extra(
+    body: ExtraIn,
+    x_tg_initdata: str | None = Header(default=None),
+    x_invite_token: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    guest = _guest_from_initdata(x_tg_initdata, x_invite_token, db)
     p: Profile = guest.profile
 
     for field, value in [
@@ -129,8 +168,13 @@ async def save_extra(body: ExtraIn, x_tg_initdata: str = Header(...), db: Sessio
     return get_profile(x_tg_initdata, db)
 
 @router.post("/partner/link", response_model=ProfileOut)
-async def link_partner(body: PartnerLinkIn, x_tg_initdata: str = Header(...), db: Session = Depends(get_db)):
-    guest = _guest_from_initdata(x_tg_initdata, db)
+async def link_partner(
+    body: PartnerLinkIn,
+    x_tg_initdata: str | None = Header(default=None),
+    x_invite_token: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    guest = _guest_from_initdata(x_tg_initdata, x_invite_token, db)
     p: Profile = guest.profile
 
     # search by exact full_name + birth_date
