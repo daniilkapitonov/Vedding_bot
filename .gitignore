@@ -4,3 +4,4 @@ backend/data/
 *.db
 docker-compose.override.yml
 docker-compose.override.disabled.yml
+docker-compose.server.yml
