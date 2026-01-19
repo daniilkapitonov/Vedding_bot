@@ -1,3 +1,4 @@
 .env
 webapp/.env
-backend/data/app.db
+backend/data/
+*.db
