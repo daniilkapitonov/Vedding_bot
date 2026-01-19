@@ -54,7 +54,7 @@ export function EventScreen(props: { onBack: () => void; onMenu: (rect: DOMRect)
     const script = document.createElement("script");
     script.async = true;
     script.charset = "utf-8";
-    script.src = "https://api-maps.yandex.ru/services/constructor/1.0/js/?um=constructor%3Ab0b94f16c23bda1e16a4c603476f8b802833b55f665d0cafa83c9d467c00ba24&width=100%25&height=220&lang=ru_RU&scroll=true";
+    script.src = "https://api-maps.yandex.ru/services/constructor/1.0/js/?um=constructor%3Ab0b94f16c23bda1e16a4c603476f8b802833b55f665d0cafa83c9d467c00ba24&width=320&height=240&lang=ru_RU&scroll=true";
     container.appendChild(script);
     return () => {
       container.innerHTML = "";

@@ -128,6 +128,25 @@ def admin_db_info(m: Message):
         "В dev БД может быть пустой/отсутствовать до первого запуска."
     )
 
+@bot.message_handler(func=lambda m: is_admin(m.from_user.id) and m.text == "DB Health")
+def admin_db_health(m: Message):
+    res = api_get("/api/admin/db-health")
+    if not res.ok:
+        bot.send_message(m.chat.id, "Не удалось получить DB Health.")
+        return
+    data = res.json()
+    tables = ", ".join(data.get("tables", [])) or "—"
+    counts = data.get("counts", {})
+    text = (
+        "<b>DB Health</b>\n"
+        f"Path: {data.get('path')}\n"
+        f"Exists: {data.get('exists')} | Size: {data.get('size_bytes')} bytes\n"
+        f"Tables: {tables}\n"
+        f"Guests: {counts.get('guests', 0)}, Profiles: {counts.get('profiles', 0)}, "
+        f"Families: {counts.get('family_groups', 0)}, Invites: {counts.get('invite_tokens', 0)}"
+    )
+    bot.send_message(m.chat.id, text)
+
 @bot.message_handler(func=lambda m: is_admin(m.from_user.id) and m.text == "Очистить базу")
 def admin_clear_db(m: Message):
     kb = InlineKeyboardMarkup()

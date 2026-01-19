@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import text
+import os
 
-from ..db import get_db
+from ..db import get_db, engine
 from ..models import Guest, Profile, EventInfo, Group, GroupMember, FamilyGroup, InviteToken, ChangeLog
 from ..schemas import AdminEventInfoIn, BroadcastIn
 from ..config import settings
@@ -140,3 +142,31 @@ def clear_db(
         db.query(Guest).delete()
         db.query(FamilyGroup).delete()
     return counts
+
+@router.get("/db-health")
+def db_health(
+    x_tg_initdata: str | None = Header(default=None),
+    x_internal_secret: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    _assert_admin_or_internal(x_tg_initdata, x_internal_secret)
+    db_path = engine.url.database or ""
+    if db_path and not os.path.isabs(db_path):
+        db_path = os.path.abspath(os.path.join(os.getcwd(), db_path))
+    exists = os.path.exists(db_path) if db_path else False
+    size_bytes = os.path.getsize(db_path) if exists else 0
+    with engine.begin() as conn:
+        tables = [r[0] for r in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))]
+    counts = {
+        "guests": db.query(Guest).count(),
+        "profiles": db.query(Profile).count(),
+        "family_groups": db.query(FamilyGroup).count(),
+        "invite_tokens": db.query(InviteToken).count(),
+    }
+    return {
+        "path": db_path,
+        "exists": exists,
+        "size_bytes": size_bytes,
+        "tables": tables,
+        "counts": counts,
+    }
