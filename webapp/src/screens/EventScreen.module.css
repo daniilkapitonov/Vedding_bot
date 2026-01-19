@@ -34,6 +34,14 @@
   font-weight: 600;
 }
 
+.linkBtn {
+  border: none;
+  background: transparent;
+  color: var(--accent-terrac);
+  font-weight: 600;
+  padding: 0;
+}
+
 .timeline {
   display: grid;
   gap: 10px;

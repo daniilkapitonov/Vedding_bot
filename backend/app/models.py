@@ -13,6 +13,7 @@ class Guest(Base):
     first_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
     last_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    family_group_id: Mapped[int | None] = mapped_column(ForeignKey("family_groups.id"), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -24,6 +25,8 @@ class Guest(Base):
         cascade="all, delete-orphan",
         foreign_keys="Profile.guest_id",
     )
+
+    family_group = relationship("FamilyGroup", back_populates="members", foreign_keys=[family_group_id])
 
 class Profile(Base):
     __tablename__ = "profiles"
@@ -63,6 +66,23 @@ class EventInfo(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     content: Mapped[str] = mapped_column(Text, default="Заглушка: здесь будет общая информация о мероприятии.")
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class FamilyGroup(Base):
+    __tablename__ = "family_groups"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    members = relationship("Guest", back_populates="family_group", cascade="all")
+
+class InviteToken(Base):
+    __tablename__ = "invite_tokens"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    family_group_id: Mapped[int] = mapped_column(ForeignKey("family_groups.id"), index=True)
+    inviter_guest_id: Mapped[int] = mapped_column(ForeignKey("guests.id"), index=True)
+    used_by_guest_id: Mapped[int | None] = mapped_column(ForeignKey("guests.id"), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 class Group(Base):
     __tablename__ = "groups"

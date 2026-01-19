@@ -5,12 +5,44 @@ import { FrostedHeader } from "../components/FrostedHeader";
 import { daysUntil } from "../utils/date";
 import { ModalSheet } from "../components/ModalSheet";
 import { BottomBar } from "../components/bottombar";
+import { Toast } from "../components/Toast";
+import { openLink, openTelegramLink } from "../utils/telegram";
 
 const WEDDING_ISO = "2026-07-25T16:00:00+03:00";
 
 export function EventScreen(props: { onBack: () => void; onMenu: (rect: DOMRect) => void; onAbout: () => void }) {
   const days = useMemo(() => daysUntil(WEDDING_ISO), []);
   const [askOpen, setAskOpen] = useState(false);
+  const [toast, setToast] = useState("");
+  const [toastVariant, setToastVariant] = useState<"ok" | "error">("ok");
+
+  const locationName = "La Provincia";
+  const locationAddress = "Калужская площадь, 1, стр. 4";
+  const locationLink = "https://yandex.ru/maps/-/CLhPUAjv";
+  const contactPhone = "+7 (906) 775-29-69";
+  const contactTg = "https://t.me/D_Kapa";
+
+  async function copyText(value: string) {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        const input = document.createElement("input");
+        input.value = value;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand("copy");
+        document.body.removeChild(input);
+      }
+      setToastVariant("ok");
+      setToast("Скопировано");
+      setTimeout(() => setToast(""), 2000);
+    } catch {
+      setToastVariant("error");
+      setToast("Не удалось скопировать");
+      setTimeout(() => setToast(""), 2200);
+    }
+  }
 
   return (
     <div className={styles.page}>
@@ -24,10 +56,10 @@ export function EventScreen(props: { onBack: () => void; onMenu: (rect: DOMRect)
       />
 
       <main className={styles.content}>
-        <GlassCard title="Локация" subtitle="La Provincia">
-          <div className={styles.text}>Адрес: ул. Итальянская, 10 (пример)</div>
+        <GlassCard title="Локация" subtitle={locationName}>
+          <div className={styles.text}>Адрес: {locationAddress}</div>
           <div className={styles.mapPlaceholder}>Карта</div>
-          <button className={styles.secondaryBtn}>Открыть маршрут</button>
+          <button className={styles.secondaryBtn} onClick={() => openLink(locationLink)}>Открыть маршрут</button>
         </GlassCard>
 
         <GlassCard title="Тайминг">
@@ -56,8 +88,11 @@ export function EventScreen(props: { onBack: () => void; onMenu: (rect: DOMRect)
         </GlassCard>
 
         <GlassCard title="Контакты">
-          <div className={styles.text}>Организатор: +7 (999) 000‑00‑00</div>
-          <button className={styles.secondaryBtn}>Скопировать</button>
+          <div className={styles.text}>Организатор: {contactPhone}</div>
+          <div className={styles.text}>
+            TG: <button className={styles.linkBtn} onClick={() => openTelegramLink(contactTg)}>@D_Kapa</button>
+          </div>
+          <button className={styles.secondaryBtn} onClick={() => copyText(contactPhone)}>Скопировать</button>
         </GlassCard>
 
         <GlassCard title="Подарки">
@@ -85,6 +120,7 @@ export function EventScreen(props: { onBack: () => void; onMenu: (rect: DOMRect)
         <textarea className={styles.textarea} placeholder="Ваш вопрос..." />
         <button className={styles.submitBtn}>Отправить</button>
       </ModalSheet>
+      <Toast message={toast} variant={toastVariant} />
       <BottomBar
         primaryLabel="Моя анкета"
         secondaryLabel="Информация о мероприятии"

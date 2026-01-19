@@ -12,6 +12,8 @@ export type TelegramWebApp = {
   ready?: () => void;
   HapticFeedback?: { impactOccurred: (style: "light" | "medium" | "heavy") => void };
   initDataUnsafe?: { user?: TelegramUser };
+  openLink?: (url: string) => void;
+  openTelegramLink?: (url: string) => void;
 };
 
 export type TelegramUser = {
@@ -47,5 +49,23 @@ export function initTelegram() {
     if (theme.text_color) root.style.setProperty("--tg-text", theme.text_color);
     if (theme.hint_color) root.style.setProperty("--tg-hint", theme.hint_color);
     if (theme.bg_color) root.style.setProperty("--tg-bg", theme.bg_color);
+  }
+}
+
+export function openLink(url: string) {
+  const tg = getTelegramWebApp();
+  try {
+    tg?.openLink?.(url);
+  } catch {
+    window.open(url, "_blank");
+  }
+}
+
+export function openTelegramLink(url: string) {
+  const tg = getTelegramWebApp();
+  try {
+    tg?.openTelegramLink?.(url);
+  } catch {
+    openLink(url);
   }
 }

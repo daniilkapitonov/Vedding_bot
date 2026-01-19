@@ -68,3 +68,13 @@ class AdminEventInfoIn(BaseModel):
 class BroadcastIn(BaseModel):
     text: str
     group_ids: List[int] = []   # empty => all
+
+class FamilyInviteOut(BaseModel):
+    token: str
+
+class FamilyAcceptIn(BaseModel):
+    token: str
+
+class FamilyStatusOut(BaseModel):
+    family_group_id: Optional[int] = None
+    members: List[dict] = []

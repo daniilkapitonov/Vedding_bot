@@ -103,3 +103,7 @@ export async function inviteFamily(telegramId: number, fullName: string) {
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
+
+export async function familyStatus() {
+  return req("/api/family/status", "GET");
+}

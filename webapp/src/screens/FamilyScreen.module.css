@@ -24,6 +24,28 @@
   gap: 10px;
 }
 
+.familyNote {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.familyList {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.familyRow {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.familyRsvp {
+  color: var(--text-muted);
+}
+
 .partnerHeader {
   display: flex;
   align-items: center;

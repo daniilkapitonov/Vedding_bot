@@ -3,7 +3,7 @@ import styles from "./FamilyScreen.module.css";
 import { FrostedHeader } from "../components/FrostedHeader";
 import { GlassCard } from "../components/GlassCard";
 import { BottomBar } from "../components/bottombar";
-import { FamilyPayload, inviteFamily, loadFamily, saveFamily } from "../api";
+import { FamilyPayload, inviteFamily, loadFamily, saveFamily, familyStatus } from "../api";
 import { Toast } from "../components/Toast";
 
 type Child = { id: string; name: string; age: string; note: string };
@@ -61,6 +61,7 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState("");
   const [toastVariant, setToastVariant] = useState<"ok" | "error">("ok");
+  const [members, setMembers] = useState<Array<{ name: string; rsvp: string }>>([]);
 
   function getLocalId(): number {
     const key = "wedding.telegram_id";
@@ -111,7 +112,18 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
       if (res?.data) dispatch({ type: "hydrate", value: res.data });
       if (res?.invite) setInvite(res.invite);
     }).catch(() => {});
+
+    familyStatus().then((res: any) => {
+      if (res?.members?.length) setMembers(res.members);
+    }).catch(() => {});
   }, []);
+
+  const rsvpLabel = (value: string) => {
+    if (value === "yes") return "Приду";
+    if (value === "no") return "Не приду";
+    if (value === "maybe") return "Не знаю";
+    return "—";
+  };
 
   return (
     <div className={styles.page}>
@@ -124,6 +136,21 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
           </label>
           {state.withPartner ? (
             <div className={styles.grid}>
+              {members.length > 1 ? (
+                <>
+                  <div className={styles.familyNote}>
+                    Вы вместе: {members.map((m) => m.name).join(", ")}
+                  </div>
+                  <div className={styles.familyList}>
+                    {members.map((m) => (
+                      <div key={m.name} className={styles.familyRow}>
+                        <span>{m.name}</span>
+                        <span className={styles.familyRsvp}>{rsvpLabel(m.rsvp)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : null}
               <div className={styles.partnerHeader}>
                 <div className={styles.partnerTitle}>Партнёр</div>
                 {invite?.confirmed ? (

@@ -11,6 +11,7 @@ import { ModalSheet } from "../components/ModalSheet";
 import { loadTempProfile, saveTempProfile, TempProfile } from "../api";
 import coupleImage from "../assets/married-people.png";
 import { Toast } from "../components/Toast";
+import { getTelegramUser } from "../utils/telegram";
 
 const WEDDING_ISO = "2026-07-25T16:00:00+03:00";
 
@@ -118,6 +119,10 @@ export function HomeScreen(props: {
         : "Вы указали, что пока не уверены";
 
   useEffect(() => {
+    const tgUser = getTelegramUser();
+    if (tgUser?.id) {
+      localStorage.setItem("wedding.telegram_id", String(tgUser.id));
+    }
     const local = loadLocalProfile();
     if (local) {
       dispatch({ type: "hydrate", value: {
@@ -149,6 +154,13 @@ export function HomeScreen(props: {
         alcohol: remote.alcohol || []
       }});
     }).catch(() => {});
+
+    if (tgUser && !local?.fullName && !local?.full_name) {
+      const name = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(" ").trim();
+      if (name) {
+        dispatch({ type: "hydrate", value: { fullName: name } });
+      }
+    }
   }, []);
 
   function confirmRsvpChange(next: SegValue) {
