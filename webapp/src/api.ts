@@ -4,9 +4,8 @@ export function tgInitData(): string {
   return w?.initData || "";
 }
 
-const API_BASE =
-  (import.meta as any).env?.VITE_API_URL ||
-  "http://localhost:8000";
+const rawBase = (import.meta as any).env?.VITE_API_URL || "";
+const API_BASE = rawBase.endsWith("/") ? rawBase.slice(0, -1) : rawBase;
 
 async function req(path: string, method: string, body?: any) {
   const initData = tgInitData();
