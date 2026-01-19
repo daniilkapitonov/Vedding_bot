@@ -25,6 +25,15 @@ app.include_router(admin.router)
 app.include_router(family.router)
 app.include_router(questions.router)
 
+def _legacy_notice():
+    return {"ok": False, "detail": "Use /api/* endpoints"}
+
+app.add_api_route("/auth/telegram", auth.auth_telegram, methods=["POST"])
+app.add_api_route("/profile", profile.get_profile, methods=["GET"])
+app.add_api_route("/profile", profile.upsert_profile, methods=["POST"])
+app.add_api_route("/extra", profile.save_extra, methods=["POST"])
+app.add_api_route("/partner/link", profile.link_partner, methods=["POST"])
+app.add_api_route("/questions", questions.send_question, methods=["POST"])
 
 def _ensure_family_group_column():
     if not engine.url.get_backend_name().startswith("sqlite"):
