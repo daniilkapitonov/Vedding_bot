@@ -151,9 +151,10 @@ export function EventScreen(props: { onBack: () => void; onMenu: (rect: DOMRect)
               setToast("Отправлено");
               setQuestion("");
               setAskOpen(false);
-            } catch {
+            } catch (e: any) {
+              const msg = String(e?.message || "");
               setToastVariant("error");
-              setToast("Не удалось отправить");
+              setToast(msg.includes("Missing initData") ? "Откройте через Telegram" : "Не удалось отправить");
             } finally {
               setTimeout(() => setToast(""), 2200);
             }

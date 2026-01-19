@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import styles from "./ProfileScreen.module.css";
 import { FrostedHeader } from "../components/FrostedHeader";
 import { GlassCard } from "../components/GlassCard";
-import { loadTempProfile, TempProfile } from "../api";
+import { api, TempProfile, tgInitData } from "../api";
 import { getTelegramUser } from "../utils/telegram";
 import { BottomBar } from "../components/bottombar";
 
@@ -32,10 +32,25 @@ export function ProfileScreen(props: { onBack: () => void; onMenu: (rect: DOMRec
   useEffect(() => {
     const local = loadLocalProfile();
     if (local) setProfile(local);
-    const telegramId = getLocalId();
-    loadTempProfile(telegramId).then((remote) => {
-      if (remote) setProfile(remote);
-    }).catch(() => {});
+    const initData = tgInitData();
+    if (initData) {
+      api.auth(initData).then(() => api.getProfile()).then((remote: any) => {
+        if (!remote) return;
+        setProfile({
+          rsvp: remote.rsvp_status || "unknown",
+          fullName: remote.full_name || "",
+          full_name: remote.full_name || "",
+          birthDate: remote.birth_date || "",
+          gender: remote.gender || "",
+          phone: remote.phone || "",
+          side: remote.side || "",
+          relative: Boolean(remote.is_relative),
+          food: remote.food_pref || "",
+          allergies: remote.food_allergies || "",
+          alcohol: remote.alcohol_prefs || []
+        });
+      }).catch(() => {});
+    }
   }, []);
 
   const isYes = profile?.rsvp === "yes";

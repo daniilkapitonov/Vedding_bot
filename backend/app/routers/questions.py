@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Header, HTTPException
-import httpx
+import logging
 
 from ..config import settings
 from ..services.telegram_auth import verify_telegram_init_data
+from ..services.notifier import send_admin_message
 
 router = APIRouter(prefix="/api/questions", tags=["questions"])
+logger = logging.getLogger(__name__)
 
 
 def _build_sender_link(user: dict) -> str:
@@ -23,10 +25,12 @@ async def send_question(
     x_tg_initdata: str | None = Header(default=None),
 ):
     if not x_tg_initdata:
+        logger.warning("questions: missing initData")
         raise HTTPException(401, "Missing initData")
     user = verify_telegram_init_data(x_tg_initdata, settings.BOT_TOKEN)
     text = (body.get("text") or "").strip()
     if not text:
+        logger.warning("questions: empty text")
         raise HTTPException(400, "Empty question")
 
     first = user.get("first_name") or ""
@@ -46,18 +50,10 @@ async def send_question(
         f"ID: {user_id}{link_part}"
     )
 
-    url = f"https://api.telegram.org/bot{settings.BOT_TOKEN}/sendMessage"
-    async with httpx.AsyncClient(timeout=8) as client:
-        for admin_id in settings.admin_id_set:
-            try:
-                await client.post(url, json={
-                    "chat_id": admin_id,
-                    "text": message,
-                    "parse_mode": "HTML",
-                    "disable_web_page_preview": True,
-                })
-            except Exception:
-                # ignore per-admin failures
-                pass
+    if not settings.BOT_TOKEN:
+        logger.error("questions: missing BOT_TOKEN in backend env")
+        raise HTTPException(500, "Missing BOT_TOKEN")
+
+    await send_admin_message(message)
 
     return {"ok": True}

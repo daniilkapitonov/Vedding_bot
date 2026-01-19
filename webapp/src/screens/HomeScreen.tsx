@@ -8,7 +8,7 @@ import { ChipsMultiSelect } from "../components/ChipsMultiSelect";
 import { BottomBar } from "../components/bottombar";
 import { daysUntil } from "../utils/date";
 import { ModalSheet } from "../components/ModalSheet";
-import { loadTempProfile, saveTempProfile, TempProfile } from "../api";
+import { api, tgInitData, TempProfile } from "../api";
 import coupleImage from "../assets/married-people.png";
 import { Toast } from "../components/Toast";
 import { getTelegramUser } from "../utils/telegram";
@@ -138,22 +138,24 @@ export function HomeScreen(props: {
         alcohol: local.alcohol || []
       }});
     }
-    const telegramId = getLocalId();
-    loadTempProfile(telegramId).then((remote) => {
-      if (!remote) return;
-      dispatch({ type: "hydrate", value: {
-        rsvp: remote.rsvp || "yes",
-        fullName: remote.fullName || remote.full_name || "",
-        birthDate: remote.birthDate || "",
-        gender: remote.gender || "",
-        phone: remote.phone || "",
-        side: remote.side || "",
-        relative: Boolean(remote.relative),
-        food: remote.food || "",
-        allergies: remote.allergies || "",
-        alcohol: remote.alcohol || []
-      }});
-    }).catch(() => {});
+    const initData = tgInitData();
+    if (initData) {
+      api.auth(initData).then(() => api.getProfile()).then((remote: any) => {
+        if (!remote) return;
+        dispatch({ type: "hydrate", value: {
+          rsvp: remote.rsvp_status || "yes",
+          fullName: remote.full_name || "",
+          birthDate: remote.birth_date || "",
+          gender: remote.gender || "",
+          phone: remote.phone || "",
+          side: remote.side || "",
+          relative: Boolean(remote.is_relative),
+          food: remote.food_pref || "",
+          allergies: remote.food_allergies || "",
+          alcohol: remote.alcohol_prefs || []
+        }});
+      }).catch(() => {});
+    }
 
     if (tgUser && !local?.fullName && !local?.full_name) {
       const name = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(" ").trim();
@@ -169,8 +171,40 @@ export function HomeScreen(props: {
     setConfirmOpen(true);
   }
 
+  function buildProfilePayload(nextRsvp?: SegValue) {
+    return {
+      rsvp_status: nextRsvp || state.rsvp,
+      full_name: state.fullName || null,
+      birth_date: state.birthDate || null,
+      gender: state.gender || null,
+      phone: state.phone || null,
+      side: state.side || null,
+      is_relative: state.relative,
+      food_pref: state.food || null,
+      food_allergies: state.allergies || null,
+      alcohol_prefs: state.alcohol || []
+    };
+  }
+
+  async function saveProfileToBackend(payload: any, successMsg: string) {
+    try {
+      const initData = tgInitData();
+      if (!initData) {
+        throw new Error("NO_INITDATA");
+      }
+      await api.saveProfile(payload);
+      setToastVariant("ok");
+      setToast(successMsg);
+    } catch (e: any) {
+      const msg = String(e?.message || "");
+      setToastVariant("error");
+      setToast(msg.includes("NO_INITDATA") ? "Откройте через Telegram" : "Не удалось сохранить");
+    } finally {
+      setTimeout(() => setToast(""), 2000);
+    }
+  }
+
   function applyRsvp(next: SegValue) {
-    const telegramId = getLocalId();
     const existing = loadLocalProfile();
     const updated: TempProfile = {
       ...(existing || {}),
@@ -186,10 +220,7 @@ export function HomeScreen(props: {
       setExpanded(false);
     }
     saveLocalProfile(updated);
-    saveTempProfile(telegramId, updated).catch(() => {});
-    setToastVariant("ok");
-    setToast("Статус сохранён");
-    setTimeout(() => setToast(""), 2000);
+    saveProfileToBackend(buildProfilePayload(next), "Статус сохранён");
   }
 
   function handlePhoneFocus() {
@@ -363,7 +394,6 @@ export function HomeScreen(props: {
           disabled={saving}
           onClick={() => {
             setSaving(true);
-            const telegramId = getLocalId();
             const payload: TempProfile = {
               rsvp: state.rsvp,
               fullName: state.fullName,
@@ -379,10 +409,7 @@ export function HomeScreen(props: {
             };
             try {
               saveLocalProfile(payload);
-              saveTempProfile(telegramId, payload).catch(() => {});
-              setToastVariant("ok");
-              setToast("Анкета сохранена");
-              setTimeout(() => setToast(""), 2000);
+              saveProfileToBackend(buildProfilePayload(), "Анкета сохранена");
             } finally {
               setTimeout(() => setSaving(false), 300);
             }
