@@ -23,7 +23,8 @@ def verify_telegram_init_data(init_data: str, bot_token: str) -> Dict[str, Any]:
     pairs = [f"{k}={v}" for k, v in sorted(data.items())]
     data_check_string = "\n".join(pairs)
 
-    secret_key = hashlib.sha256(bot_token.encode()).digest()
+    # Telegram WebApp uses HMAC-SHA256 with key "WebAppData"
+    secret_key = hmac.new(b"WebAppData", bot_token.encode(), hashlib.sha256).digest()
     computed_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
 
     if not hmac.compare_digest(computed_hash, received_hash):
