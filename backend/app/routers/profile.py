@@ -8,7 +8,7 @@ from ..models import Guest, Profile, ChangeLog
 from ..schemas import ProfileIn, ProfileOut, ExtraIn, PartnerLinkIn
 from ..config import settings
 from ..services.telegram_auth import verify_telegram_init_data, get_guest_from_invite
-from ..services.notifier import notify_admins
+from ..services.notifier import send_admin_message
 
 router = APIRouter(prefix="/api", tags=["profile"])
 logger = logging.getLogger(__name__)
@@ -67,12 +67,23 @@ def _join_csv(v: list[str]) -> str:
         normalized.append(value)
     return ",".join(normalized)
 
-async def _log_change(db: Session, guest_id: int, field: str, old, new):
-    if str(old) == str(new):
-        return
-    db.add(ChangeLog(guest_id=guest_id, field=field, old_value=str(old) if old is not None else None, new_value=str(new) if new is not None else None))
-    db.commit()
-    await notify_admins("profile_changed", {"guest_id": guest_id, "field": field, "old": old, "new": new})
+def _fmt_value(value) -> str:
+    if value is None or value == "":
+        return "—"
+    if isinstance(value, list):
+        return ", ".join([str(v) for v in value if v]) or "—"
+    if isinstance(value, bool):
+        return "Да" if value else "Нет"
+    if isinstance(value, date):
+        return value.isoformat()
+    return str(value)
+
+def _diff(before: dict, after: dict, labels: dict) -> list[tuple[str, str, str]]:
+    changes = []
+    for key, label in labels.items():
+        if before.get(key) != after.get(key):
+            changes.append((label, _fmt_value(before.get(key)), _fmt_value(after.get(key))))
+    return changes
 
 @router.get("/profile", response_model=ProfileOut)
 def get_profile(
@@ -112,10 +123,21 @@ async def upsert_profile(
     guest = _guest_from_initdata(x_tg_initdata, x_invite_token, db)
     p: Profile = guest.profile
 
+    before = {
+        "rsvp_status": p.rsvp_status,
+        "full_name": p.full_name,
+        "birth_date": p.birth_date,
+        "gender": p.gender,
+        "side": p.side,
+        "is_relative": p.is_relative,
+        "food_pref": p.food_pref,
+        "food_allergies": p.food_allergies,
+        "alcohol_prefs": _split_csv(p.alcohol_prefs_csv),
+        "phone": guest.phone,
+    }
+
     # RSVP=No => only store minimal and lock in UI logic
-    old_rsvp = p.rsvp_status
     p.rsvp_status = body.rsvp_status
-    await _log_change(db, guest.id, "rsvp_status", old_rsvp, p.rsvp_status)
 
     # Basic fields
     for field, value in [
@@ -127,25 +149,56 @@ async def upsert_profile(
         ("food_pref", body.food_pref),
         ("food_allergies", body.food_allergies),
     ]:
-        old = getattr(p, field)
         setattr(p, field, value)
-        await _log_change(db, guest.id, field, old, value)
 
     # phone on Guest
-    old_phone = guest.phone
     guest.phone = body.phone
-    await _log_change(db, guest.id, "phone", old_phone, guest.phone)
 
     # alcohol
-    old_alc = p.alcohol_prefs_csv
     p.alcohol_prefs_csv = _join_csv(body.alcohol_prefs)
-    await _log_change(db, guest.id, "alcohol_prefs", old_alc, p.alcohol_prefs_csv)
 
     db.add(guest)
     db.add(p)
+    after = {
+        "rsvp_status": p.rsvp_status,
+        "full_name": p.full_name,
+        "birth_date": p.birth_date,
+        "gender": p.gender,
+        "side": p.side,
+        "is_relative": p.is_relative,
+        "food_pref": p.food_pref,
+        "food_allergies": p.food_allergies,
+        "alcohol_prefs": _split_csv(p.alcohol_prefs_csv),
+        "phone": guest.phone,
+    }
+    labels = {
+        "rsvp_status": "RSVP",
+        "full_name": "ФИО",
+        "birth_date": "Дата рождения",
+        "gender": "Пол",
+        "side": "Сторона",
+        "is_relative": "Родственник",
+        "food_pref": "Еда",
+        "food_allergies": "Аллергии",
+        "alcohol_prefs": "Алкоголь",
+        "phone": "Телефон",
+    }
+    changes = _diff(before, after, labels)
+    for label, old, new in changes:
+        db.add(ChangeLog(guest_id=guest.id, field=label, old_value=old, new_value=new))
     db.commit()
 
-    return get_profile(x_tg_initdata, db)
+    if changes:
+        try:
+            name = p.full_name or f"{guest.first_name or ''} {guest.last_name or ''}".strip() or "Гость"
+            lines = [f"<b>Анкета обновлена</b>", f"{name} (id {guest.id})", ""]
+            for label, old, new in changes:
+                lines.append(f"{label}: {old} → {new}")
+            await send_admin_message("\n".join(lines), category="system", db=db)
+        except Exception:
+            pass
+
+    return get_profile(x_tg_initdata, x_invite_token, db)
 
 @router.post("/extra", response_model=ProfileOut)
 async def save_extra(
@@ -157,24 +210,51 @@ async def save_extra(
     guest = _guest_from_initdata(x_tg_initdata, x_invite_token, db)
     p: Profile = guest.profile
 
+    before = {
+        "extra_known_since": p.extra_known_since,
+        "extra_memory": p.extra_memory,
+        "extra_fact": p.extra_fact,
+        "photos": _split_csv(p.photos_csv),
+    }
+
     for field, value in [
         ("extra_known_since", body.extra_known_since),
         ("extra_memory", body.extra_memory),
         ("extra_fact", body.extra_fact),
     ]:
-        old = getattr(p, field)
         setattr(p, field, value)
-        await _log_change(db, guest.id, field, old, value)
 
     # photos max 5
     photos = body.photos[:5]
-    old_ph = p.photos_csv
     p.photos_csv = _join_csv(photos)
-    await _log_change(db, guest.id, "photos", old_ph, p.photos_csv)
 
     db.add(p)
+    after = {
+        "extra_known_since": p.extra_known_since,
+        "extra_memory": p.extra_memory,
+        "extra_fact": p.extra_fact,
+        "photos": _split_csv(p.photos_csv),
+    }
+    labels = {
+        "extra_known_since": "Кого знаете ближе",
+        "extra_memory": "Воспоминание",
+        "extra_fact": "Факт",
+        "photos": "Фото",
+    }
+    changes = _diff(before, after, labels)
+    for label, old, new in changes:
+        db.add(ChangeLog(guest_id=guest.id, field=label, old_value=old, new_value=new))
     db.commit()
-    return get_profile(x_tg_initdata, db)
+    if changes:
+        try:
+            name = p.full_name or f"{guest.first_name or ''} {guest.last_name or ''}".strip() or "Гость"
+            lines = [f"<b>Доп. информация обновлена</b>", f"{name} (id {guest.id})", ""]
+            for label, old, new in changes:
+                lines.append(f"{label}: {old} → {new}")
+            await send_admin_message("\n".join(lines), category="system", db=db)
+        except Exception:
+            pass
+    return get_profile(x_tg_initdata, x_invite_token, db)
 
 @router.post("/partner/link", response_model=ProfileOut)
 async def link_partner(
@@ -194,9 +274,11 @@ async def link_partner(
         .one_or_none()
     )
 
-    old_partner = p.partner_guest_id
-    old_pending_name = p.partner_pending_full_name
-    old_pending_bd = p.partner_pending_birth_date
+    before = {
+        "partner_guest_id": p.partner_guest_id,
+        "partner_pending_full_name": p.partner_pending_full_name,
+        "partner_pending_birth_date": p.partner_pending_birth_date,
+    }
 
     if candidate and candidate.guest_id != p.guest_id:
         p.partner_guest_id = candidate.guest_id
@@ -213,10 +295,28 @@ async def link_partner(
         p.partner_pending_full_name = body.full_name
         p.partner_pending_birth_date = body.birth_date
 
-    await _log_change(db, guest.id, "partner_guest_id", old_partner, p.partner_guest_id)
-    await _log_change(db, guest.id, "partner_pending_full_name", old_pending_name, p.partner_pending_full_name)
-    await _log_change(db, guest.id, "partner_pending_birth_date", old_pending_bd, p.partner_pending_birth_date)
-
     db.add(p)
+    after = {
+        "partner_guest_id": p.partner_guest_id,
+        "partner_pending_full_name": p.partner_pending_full_name,
+        "partner_pending_birth_date": p.partner_pending_birth_date,
+    }
+    labels = {
+        "partner_guest_id": "Партнёр (ID)",
+        "partner_pending_full_name": "Партнёр (ожид.)",
+        "partner_pending_birth_date": "ДР партнёра (ожид.)",
+    }
+    changes = _diff(before, after, labels)
+    for label, old, new in changes:
+        db.add(ChangeLog(guest_id=guest.id, field=label, old_value=old, new_value=new))
     db.commit()
-    return get_profile(x_tg_initdata, db)
+    if changes:
+        try:
+            name = p.full_name or f"{guest.first_name or ''} {guest.last_name or ''}".strip() or "Гость"
+            lines = [f"<b>Партнёр обновлён</b>", f"{name} (id {guest.id})", ""]
+            for label, old, new in changes:
+                lines.append(f"{label}: {old} → {new}")
+            await send_admin_message("\n".join(lines), category="system", db=db)
+        except Exception:
+            pass
+    return get_profile(x_tg_initdata, x_invite_token, db)

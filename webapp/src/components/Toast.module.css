@@ -10,7 +10,7 @@
   box-shadow: var(--shadow-1);
   color: var(--text-secondary);
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--font-xs);
   animation: toastIn 160ms ease;
 }
 

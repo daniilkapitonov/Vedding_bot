@@ -55,7 +55,7 @@
   background: rgba(255,255,255,0.35);
   border: 1px solid rgba(255,255,255,0.4);
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-xs);
 }
 
 .avatarYes { color: #5f6f56; }
@@ -68,7 +68,7 @@
   align-items: center;
   padding: 8px 0;
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: var(--font-sm);
 }
 
 .line strong {
@@ -93,6 +93,6 @@
 }
 
 .mutedNote {
-  font-size: 14px;
+  font-size: var(--font-sm);
   color: var(--text-muted);
 }

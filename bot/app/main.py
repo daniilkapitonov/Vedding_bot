@@ -12,6 +12,8 @@ bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
 app = Flask(__name__)
 BOT_USERNAME = None
 ADMIN_STATE = {}
+SYS_OFF_LABEL = "🔕 Отключить системные уведомления"
+SYS_ON_LABEL = "🔔 Включить системные уведомления"
 
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
@@ -27,6 +29,16 @@ def api_post(path: str, payload: dict):
 
 def api_delete(path: str):
     return requests.delete(f"{API_BASE_URL}{path}", headers=api_headers(), timeout=8)
+
+def get_system_notifications_enabled(admin_id: int) -> bool:
+    res = api_get("/api/admin/notification-settings", params={"admin_id": admin_id})
+    if res.ok:
+        return bool(res.json().get("system_notifications_enabled", True))
+    return True
+
+def set_system_notifications_enabled(admin_id: int, enabled: bool) -> bool:
+    res = api_post("/api/admin/notification-settings", {"admin_id": admin_id, "system_notifications_enabled": enabled})
+    return res.ok
 
 def ensure_bot_username():
     global BOT_USERNAME
@@ -54,10 +66,53 @@ def render_guests(chat_id: int, page: int = 1, rsvp: str | None = None, q: str |
     text_lines = [f"<b>Гости</b> (стр. {data.get('page')}, всего {total})"]
     if total == 0:
         text_lines.append("В dev БД может быть пустой. В prod БД хранится в backend/data/app.db (bind-mount).")
-    for it in items:
-        text_lines.append(
-            f"#{it['guest_id']} — {it.get('name') or '—'} | RSVP: {it.get('rsvp')}"
+    else:
+        def trunc(s: str, n: int) -> str:
+            s = s or ""
+            return s[:n-1] + "…" if len(s) > n else s
+        def pad(s: str, n: int) -> str:
+            s = trunc(s, n)
+            return s + (" " * (n - len(s)))
+        lines = []
+        header = (
+            pad("ID", 4) + pad("Имя", 18) + pad("@", 12) + pad("RSVP", 6) +
+            pad("Тел", 13) + pad("Пол", 6) + pad("Еда", 10) + pad("Алко", 12) +
+            pad("Стор", 6) + pad("Род", 4) + pad("Аллерг", 12) + pad("Сем", 4) +
+            pad("Обн", 10)
         )
+        lines.append(header)
+        lines.append("-" * len(header))
+        for it in items:
+            name = it.get("name") or "—"
+            username = it.get("username") or "—"
+            rsvp_val = it.get("rsvp") or "—"
+            phone = it.get("phone") or "—"
+            food = it.get("food") or "—"
+            alcohol = it.get("alcohol") or "—"
+            gender = it.get("gender") or "—"
+            side = it.get("side") or "—"
+            relative = "Да" if it.get("relative") else "—"
+            allergies = it.get("allergies") or "—"
+            fam = "Да" if it.get("family_group_id") else "—"
+            updated = (it.get("updated_at") or "")[:10] or "—"
+            row = (
+                pad(str(it.get("guest_id") or ""), 4) +
+                pad(name, 18) +
+                pad(username, 12) +
+                pad(rsvp_val, 6) +
+                pad(phone, 13) +
+                pad(gender, 6) +
+                pad(food, 10) +
+                pad(alcohol, 12) +
+                pad(side, 6) +
+                pad(relative, 4) +
+                pad(allergies, 12) +
+                pad(fam, 4) +
+                pad(updated, 10)
+            )
+            lines.append(row)
+        table = "<pre>" + "\n".join(lines).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;") + "</pre>"
+        text_lines.append(table)
     has_prev = page > 1
     has_next = page * data.get("page_size", 10) < total
     kb = guests_inline_kb(page, rsvp, q, has_prev, has_next)
@@ -75,7 +130,11 @@ def start(m: Message):
             bot.send_message(m.chat.id, "Приглашение принято. Вы теперь вместе.")
         else:
             bot.send_message(m.chat.id, "Не удалось принять приглашение.")
-    reply = admin_main_kb(WEBAPP_URL) if is_admin(m.from_user.id) else main_kb(WEBAPP_URL)
+    if is_admin(m.from_user.id):
+        enabled = get_system_notifications_enabled(m.from_user.id)
+        reply = admin_main_kb(WEBAPP_URL, enabled)
+    else:
+        reply = main_kb(WEBAPP_URL)
     bot.send_message(
         m.chat.id,
         "Привет! Это свадебный бот.\nОткройте приложение и заполните анкету.",
@@ -86,7 +145,8 @@ def start(m: Message):
 def admin_help(m: Message):
     if not is_admin(m.from_user.id):
         return
-    bot.send_message(m.chat.id, "Админ-меню:", reply_markup=admin_kb())
+    enabled = get_system_notifications_enabled(m.from_user.id)
+    bot.send_message(m.chat.id, "Админ-меню:", reply_markup=admin_kb(enabled))
 
 @bot.message_handler(commands=["invite"])
 def invite_family(m: Message):
@@ -153,6 +213,16 @@ def admin_clear_db(m: Message):
     kb.add(InlineKeyboardButton("Да, продолжить", callback_data="clear_db:step1"))
     kb.add(InlineKeyboardButton("Нет", callback_data="clear_db:cancel"))
     bot.send_message(m.chat.id, "Вы уверены? Это удалит всех гостей и анкеты. Продолжить?", reply_markup=kb)
+
+@bot.message_handler(func=lambda m: is_admin(m.from_user.id) and m.text in (SYS_OFF_LABEL, SYS_ON_LABEL))
+def admin_toggle_notifications(m: Message):
+    current = get_system_notifications_enabled(m.from_user.id)
+    target = not current
+    if set_system_notifications_enabled(m.from_user.id, target):
+        status = "включены" if target else "отключены"
+        bot.send_message(m.chat.id, f"Системные уведомления {status}.", reply_markup=admin_kb(target))
+    else:
+        bot.send_message(m.chat.id, "Не удалось изменить настройки уведомлений.")
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("clear_db:"))
 def clear_db_cb(c):

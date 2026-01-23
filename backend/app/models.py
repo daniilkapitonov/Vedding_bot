@@ -116,3 +116,9 @@ class ChangeLog(Base):
     old_value: Mapped[str | None] = mapped_column(Text, nullable=True)
     new_value: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+class AdminSettings(Base):
+    __tablename__ = "admin_settings"
+    admin_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    system_notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

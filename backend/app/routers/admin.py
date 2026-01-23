@@ -4,11 +4,11 @@ from sqlalchemy import text
 import os
 
 from ..db import get_db, engine
-from ..models import Guest, Profile, EventInfo, Group, GroupMember, FamilyGroup, InviteToken, ChangeLog, FamilyProfile
+from ..models import Guest, Profile, EventInfo, Group, GroupMember, FamilyGroup, InviteToken, ChangeLog, FamilyProfile, AdminSettings
 from ..schemas import AdminEventInfoIn, BroadcastIn
 from ..config import settings
 from ..services.telegram_auth import verify_telegram_init_data
-from ..services.notifier import notify_admins
+from ..services.notifier import notify_admins, send_admin_message
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -32,7 +32,9 @@ def list_guests(
     db: Session = Depends(get_db)
 ):
     _assert_admin_or_internal(x_tg_initdata, x_internal_secret)
-    query = db.query(Guest, Profile).join(Profile, Profile.guest_id == Guest.id)
+    query = db.query(Guest, Profile, FamilyProfile).join(Profile, Profile.guest_id == Guest.id).outerjoin(
+        FamilyProfile, FamilyProfile.guest_id == Guest.id
+    )
     if rsvp:
         query = query.filter(Profile.rsvp_status == rsvp)
     if q:
@@ -45,15 +47,31 @@ def list_guests(
     total = query.count()
     rows = query.offset((page - 1) * page_size).limit(page_size).all()
     out = []
-    for g, p in rows:
+    for g, p, fp in rows:
+        alcohol = p.alcohol_prefs_csv or ""
+        children_count = 0
+        if fp and fp.children_json:
+            try:
+                import json as _json
+                children_count = len(_json.loads(fp.children_json))
+            except Exception:
+                children_count = 0
         out.append({
             "guest_id": g.id,
             "telegram_user_id": g.telegram_user_id,
             "name": p.full_name or f"{g.first_name or ''} {g.last_name or ''}".strip(),
+            "username": g.username,
             "rsvp": p.rsvp_status,
             "side": p.side,
             "relative": p.is_relative,
             "food": p.food_pref,
+            "allergies": p.food_allergies,
+            "gender": p.gender,
+            "alcohol": alcohol,
+            "phone": g.phone,
+            "family_group_id": g.family_group_id,
+            "children_count": children_count,
+            "updated_at": g.updated_at.isoformat() if g.updated_at else None,
         })
     return {"items": out, "total": total, "page": page, "page_size": page_size}
 
@@ -87,7 +105,14 @@ async def update_event_info(
     else:
         row.content = body.content
     db.commit()
-    await notify_admins("event_info_updated", {"len": len(body.content)})
+    try:
+        await send_admin_message(
+            f"<b>Информация о мероприятии обновлена</b>\nДлина: {len(body.content)}",
+            category="system",
+            db=db,
+        )
+    except Exception:
+        pass
     return {"ok": True}
 
 @router.post("/broadcast")
@@ -144,6 +169,40 @@ def clear_db(
     db.query(FamilyGroup).delete()
     db.commit()
     return counts
+
+@router.get("/notification-settings")
+def get_notification_settings(
+    admin_id: int = Query(..., ge=1),
+    x_internal_secret: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    if not x_internal_secret or x_internal_secret != settings.INTERNAL_SECRET:
+        raise HTTPException(403, "Forbidden")
+    row = db.query(AdminSettings).filter(AdminSettings.admin_id == admin_id).one_or_none()
+    enabled = True if not row else bool(row.system_notifications_enabled)
+    return {"admin_id": admin_id, "system_notifications_enabled": enabled}
+
+@router.post("/notification-settings")
+def set_notification_settings(
+    body: dict,
+    x_internal_secret: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    if not x_internal_secret or x_internal_secret != settings.INTERNAL_SECRET:
+        raise HTTPException(403, "Forbidden")
+    admin_id = int(body.get("admin_id") or 0)
+    enabled = bool(body.get("system_notifications_enabled", True))
+    if admin_id <= 0:
+        raise HTTPException(400, "Missing admin_id")
+    row = db.query(AdminSettings).filter(AdminSettings.admin_id == admin_id).one_or_none()
+    if not row:
+        row = AdminSettings(admin_id=admin_id, system_notifications_enabled=enabled)
+        db.add(row)
+    else:
+        row.system_notifications_enabled = enabled
+        db.add(row)
+    db.commit()
+    return {"admin_id": admin_id, "system_notifications_enabled": enabled}
 
 @router.get("/db-health")
 def db_health(

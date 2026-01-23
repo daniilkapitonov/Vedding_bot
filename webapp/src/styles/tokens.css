@@ -45,5 +45,9 @@
   --gap: 14px;
   --card-pad: 18px;
 
+  --font-base: 18px;
+  --font-sm: 18px;
+  --font-xs: 16px;
+
   color-scheme: light;
 }

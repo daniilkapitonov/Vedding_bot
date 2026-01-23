@@ -71,10 +71,9 @@ async def send_question(
         f"ID: {user_id}{link_part}"
     )
 
-    if not settings.BOT_TOKEN:
-        logger.error("questions: missing BOT_TOKEN in backend env")
-        raise HTTPException(500, "Missing BOT_TOKEN")
-
-    await send_admin_message(message)
+    sent = await send_admin_message(message, category="question", db=db)
+    if not sent:
+        logger.error("questions: notify failed")
+        raise HTTPException(500, "Notify failed")
 
     return {"ok": True}

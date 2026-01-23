@@ -10,6 +10,7 @@ from ..models import Guest, Profile, FamilyGroup, InviteToken, FamilyProfile
 from ..config import settings
 from ..services.telegram_auth import verify_telegram_init_data, get_guest_from_invite
 from ..schemas import FamilyAcceptIn, FamilyInviteOut, FamilyStatusOut, FamilySaveIn, FamilyOut, FamilyInviteByNameIn
+from ..services.notifier import send_admin_message
 
 router = APIRouter(prefix="/api/family", tags=["family"])
 
@@ -157,7 +158,7 @@ def get_family(
     return FamilyOut(with_partner=row.with_partner, partner_name=row.partner_name, children=children)
 
 @router.post("/save", response_model=FamilyOut)
-def save_family(
+async def save_family(
     body: FamilySaveIn,
     x_tg_initdata: str | None = Header(default=None),
     x_invite_token: str | None = Header(default=None),
@@ -165,6 +166,11 @@ def save_family(
 ):
     guest = _guest_from_initdata(x_tg_initdata, x_invite_token, db)
     row = db.query(FamilyProfile).filter(FamilyProfile.guest_id == guest.id).one_or_none()
+    before = {
+        "with_partner": bool(row.with_partner) if row else False,
+        "partner_name": row.partner_name if row else None,
+        "children_count": len(json.loads(row.children_json)) if row and row.children_json else 0,
+    }
     children_json = json.dumps(body.children or [])
     if not row:
         row = FamilyProfile(
@@ -180,6 +186,29 @@ def save_family(
         row.children_json = children_json
         db.add(row)
     db.commit()
+    after = {
+        "with_partner": bool(row.with_partner),
+        "partner_name": row.partner_name,
+        "children_count": len(body.children or []),
+    }
+    changes = []
+    if before["with_partner"] != after["with_partner"]:
+        changes.append(("Пара", "Да" if before["with_partner"] else "Нет", "Да" if after["with_partner"] else "Нет"))
+    if before["partner_name"] != after["partner_name"]:
+        changes.append(("Партнёр", before["partner_name"] or "—", after["partner_name"] or "—"))
+    if before["children_count"] != after["children_count"]:
+        changes.append(("Дети (кол-во)", str(before["children_count"]), str(after["children_count"])))
+    if changes:
+        try:
+            name = guest.profile.full_name if guest.profile else ""
+            if not name:
+                name = f"{guest.first_name or ''} {guest.last_name or ''}".strip() or "Гость"
+            lines = [f"<b>Семья обновлена</b>", f"{name} (id {guest.id})", ""]
+            for label, old, new in changes:
+                lines.append(f"{label}: {old} → {new}")
+            await send_admin_message("\n".join(lines), category="system", db=db)
+        except Exception:
+            pass
     return FamilyOut(with_partner=row.with_partner, partner_name=row.partner_name, children=body.children or [])
 
 @router.post("/invite-by-name")
