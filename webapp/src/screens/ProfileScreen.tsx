@@ -3,20 +3,15 @@ import styles from "./ProfileScreen.module.css";
 import { FrostedHeader } from "../components/FrostedHeader";
 import { GlassCard } from "../components/GlassCard";
 import { api, TempProfile, tgInitData, getInviteToken } from "../api";
-import { getTelegramUser } from "../utils/telegram";
+import { getTelegramUser, getTelegramUserId } from "../utils/telegram";
 import { BottomBar } from "../components/bottombar";
 
-function getLocalId(): number {
-  const key = "wedding.telegram_id";
-  const raw = localStorage.getItem(key);
-  if (raw) return Number(raw);
-  const generated = 100000 + Math.floor(Math.random() * 900000);
-  localStorage.setItem(key, String(generated));
-  return generated;
+function profileStorageKey(userId: number | null) {
+  return userId ? `wedding.profile.${userId}` : "wedding.profile.guest";
 }
 
-function loadLocalProfile(): TempProfile | null {
-  const raw = localStorage.getItem("wedding.profile");
+function loadLocalProfile(userId: number | null): TempProfile | null {
+  const raw = localStorage.getItem(profileStorageKey(userId));
   if (!raw) return null;
   try {
     return JSON.parse(raw);
@@ -28,17 +23,33 @@ function loadLocalProfile(): TempProfile | null {
 export function ProfileScreen(props: { onBack: () => void; onMenu: (rect: DOMRect) => void; onEvent: () => void }) {
   const [profile, setProfile] = useState<TempProfile | null>(null);
   const tgUser = getTelegramUser();
+  const [showFirstTime, setShowFirstTime] = useState(false);
 
   useEffect(() => {
-    const local = loadLocalProfile();
-    if (local) setProfile(local);
+    const local = loadLocalProfile(getTelegramUserId());
+    if (local) {
+      const alcohol = (local.alcohol || []).map((v) => v === "Не пью" ? "Не пью алкоголь" : v);
+      setProfile({ ...local, alcohol });
+      if (local.rsvp === "yes" || local.rsvp === "no" || local.rsvp === "maybe") {
+        setShowFirstTime(false);
+      }
+    }
     const initData = tgInitData();
     const inviteToken = getInviteToken();
     if (initData || inviteToken) {
       api.auth().then(() => api.getProfile()).then((remote: any) => {
         if (!remote) return;
+        const alcohol = (remote.alcohol_prefs || []).map((v: string) =>
+          v === "Не пью" ? "Не пью алкоголь" : v
+        );
+        const remoteRsvp = remote.rsvp_status || "";
+        if (remoteRsvp === "yes" || remoteRsvp === "no" || remoteRsvp === "maybe") {
+          setShowFirstTime(false);
+        } else {
+          setShowFirstTime(true);
+        }
         setProfile({
-          rsvp: remote.rsvp_status || "unknown",
+          rsvp: remoteRsvp || "unknown",
           fullName: remote.full_name || "",
           full_name: remote.full_name || "",
           birthDate: remote.birth_date || "",
@@ -48,7 +59,7 @@ export function ProfileScreen(props: { onBack: () => void; onMenu: (rect: DOMRec
           relative: Boolean(remote.is_relative),
           food: remote.food_pref || "",
           allergies: remote.food_allergies || "",
-          alcohol: remote.alcohol_prefs || []
+          alcohol
         });
       }).catch(() => {});
     }
@@ -89,6 +100,7 @@ export function ProfileScreen(props: { onBack: () => void; onMenu: (rect: DOMRec
   const genderLabel = profile?.gender ? genderMap[profile.gender] || "—" : "—";
   const foodLabel = profile?.food ? foodMap[profile.food] || "—" : "—";
   const photoUrl = tgUser?.photo_url || "";
+  const alcoholList = (profile?.alcohol || []).map((v) => v === "Не пью" ? "Не пью алкоголь" : v);
 
   return (
     <div className={styles.page}>
@@ -106,6 +118,11 @@ export function ProfileScreen(props: { onBack: () => void; onMenu: (rect: DOMRec
               </div>
             )}
           </div>
+          {showFirstTime ? (
+            <div className={styles.firstTimeBanner}>
+              Вы не выбрали свой статус — отметьте, будете ли вы присутствовать на свадьбе.
+            </div>
+          ) : null}
           <div className={styles.line}><span>ФИО</span><strong>{name}</strong></div>
           <div className={styles.line}><span>Телефон</span><strong>{profile?.phone || "—"}</strong></div>
           <div className={styles.line}><span>Пол</span><strong>{genderLabel}</strong></div>
@@ -120,7 +137,7 @@ export function ProfileScreen(props: { onBack: () => void; onMenu: (rect: DOMRec
             <>
               <div className={styles.line}><span>Еда</span><strong>{foodLabel}</strong></div>
               <div className={styles.line}><span>Аллергии</span><strong>{profile?.allergies || "—"}</strong></div>
-              <div className={styles.line}><span>Алкоголь</span><strong>{(profile?.alcohol || []).join(", ") || "—"}</strong></div>
+              <div className={styles.line}><span>Алкоголь</span><strong>{alcoholList.join(", ") || "—"}</strong></div>
             </>
           )}
         </GlassCard>

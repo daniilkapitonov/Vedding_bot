@@ -35,6 +35,16 @@ export function getTelegramUser(): TelegramUser | null {
   return tg?.initDataUnsafe?.user || null;
 }
 
+export function getTelegramUserId(): number | null {
+  const user = getTelegramUser();
+  return typeof user?.id === "number" ? user.id : null;
+}
+
+export function getTelegramInitData(): string {
+  const tg = getTelegramWebApp();
+  return tg?.initData || "";
+}
+
 export function initTelegram() {
   const tg = getTelegramWebApp();
   try {

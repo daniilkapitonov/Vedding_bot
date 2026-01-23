@@ -18,8 +18,8 @@
 
 .avatarImg,
 .avatar {
-  width: 72px;
-  height: 72px;
+  width: clamp(60px, 18vw, 84px);
+  height: clamp(60px, 18vw, 84px);
   border-radius: var(--r-pill);
 }
 
@@ -39,13 +39,23 @@
 }
 
 .heartIcon {
-  width: 28px;
-  height: 28px;
+  width: clamp(22px, 6vw, 30px);
+  height: clamp(22px, 6vw, 30px);
   fill: currentColor;
   display: block;
   filter: drop-shadow(0 2px 6px rgba(94,124,109,0.28));
   stroke: rgba(255,255,255,0.35);
   stroke-width: 0.6px;
+}
+
+.firstTimeBanner {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.35);
+  border: 1px solid rgba(255,255,255,0.4);
+  color: var(--text-secondary);
+  font-size: 13px;
 }
 
 .avatarYes { color: #5f6f56; }

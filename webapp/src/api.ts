@@ -16,6 +16,29 @@ export function getInviteToken(): string {
 const rawBase = (import.meta as any).env?.VITE_API_URL || "";
 const API_BASE = rawBase.endsWith("/") ? rawBase.slice(0, -1) : rawBase;
 
+async function parseError(res: Response): Promise<string> {
+  try {
+    const contentType = res.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const data = await res.json();
+      const detail = (data as any)?.detail;
+      if (Array.isArray(detail)) {
+        const lines = detail.map((d) => {
+          const path = Array.isArray(d.loc) ? d.loc.slice(1).join(".") : "";
+          return path ? `${path}: ${d.msg}` : d.msg;
+        });
+        return lines.join(", ");
+      }
+      if (typeof detail === "string") return detail;
+      if (typeof (data as any)?.message === "string") return (data as any).message;
+    }
+    const text = await res.text();
+    return text || "Request failed";
+  } catch {
+    return "Request failed";
+  }
+}
+
 async function req(path: string, method: string, body?: any) {
   const initData = tgInitData();
   const inviteToken = initData ? "" : getInviteToken();
@@ -28,7 +51,7 @@ async function req(path: string, method: string, body?: any) {
     },
     body: body ? JSON.stringify(body) : undefined
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw new Error(await parseError(res));
   const contentType = res.headers.get("content-type") || "";
   if (contentType.includes("application/json")) {
     return res.json();
@@ -50,7 +73,7 @@ export const api = {
       },
       body: JSON.stringify({ initData: resolvedInitData })
     });
-    if (!res.ok) throw new Error(await res.text());
+    if (!res.ok) throw new Error(await parseError(res));
     const contentType = res.headers.get("content-type") || "";
     if (contentType.includes("application/json")) {
       return res.json();

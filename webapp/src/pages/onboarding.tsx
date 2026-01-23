@@ -3,18 +3,22 @@ import { Card } from "../components/card";
 import { api } from "../api";
 
 const alcoholOptions = [
-  "wine", "beer", "sparkling", "vodka", "whiskey", "cocktails", "any", "none"
+  "Вино красное",
+  "Вино белое",
+  "Шампанское",
+  "Коньяк",
+  "Не пью алкоголь",
 ];
 
 export default function Onboarding(props: { onDone: () => void }) {
   const [rsvp, setRsvp] = useState<"yes"|"no"|"maybe">("yes");
   const [fullName, setFullName] = useState("");
   const [birthDate, setBirthDate] = useState("");
-  const [gender, setGender] = useState<"male"|"female"|"other">("male");
+  const [gender, setGender] = useState<"Мужской"|"Женский"|"Другое">("Мужской");
   const [phone, setPhone] = useState("");
   const [side, setSide] = useState<"groom"|"bride"|"both">("groom");
   const [isRelative, setIsRelative] = useState(false);
-  const [food, setFood] = useState<"fish"|"meat"|"vegan">("meat");
+  const [food, setFood] = useState<"Мясо"|"Рыба"|"Вегетарианское"|"Веган">("Мясо");
   const [allergies, setAllergies] = useState("");
   const [alcohol, setAlcohol] = useState<string[]>([]);
   const [err, setErr] = useState<string | null>(null);
@@ -107,9 +111,9 @@ export default function Onboarding(props: { onDone: () => void }) {
               <label>
                 <div style={{fontSize:12, color:"var(--muted)"}}>Пол</div>
                 <select value={gender} onChange={e=>setGender(e.target.value as any)} style={inp}>
-                  <option value="male">Мужской</option>
-                  <option value="female">Женский</option>
-                  <option value="other">Другое</option>
+                  <option value="Мужской">Мужской</option>
+                  <option value="Женский">Женский</option>
+                  <option value="Другое">Другое</option>
                 </select>
               </label>
 
@@ -135,9 +139,10 @@ export default function Onboarding(props: { onDone: () => void }) {
               <label>
                 <div style={{fontSize:12, color:"var(--muted)"}}>Еда</div>
                 <select value={food} onChange={e=>setFood(e.target.value as any)} style={inp}>
-                  <option value="meat">Мясо</option>
-                  <option value="fish">Рыба</option>
-                  <option value="vegan">Vegan</option>
+                  <option value="Мясо">Мясо</option>
+                  <option value="Рыба">Рыба</option>
+                  <option value="Вегетарианское">Вегетарианское</option>
+                  <option value="Веган">Веган</option>
                 </select>
               </label>
 
@@ -158,7 +163,7 @@ export default function Onboarding(props: { onDone: () => void }) {
                       cursor:"pointer",
                       fontSize: 12
                     }}>
-                      {k === "any" ? "Без разницы" : k === "none" ? "Не пью" : k}
+                      {k}
                     </button>
                   ))}
                 </div>

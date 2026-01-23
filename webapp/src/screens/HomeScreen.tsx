@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useReducer, useState } from "react";
+import React, { useEffect, useMemo, useReducer, useState, useRef } from "react";
 import styles from "./HomeScreen.module.css";
 import { GlassCard } from "../components/GlassCard";
 import { FrostedHeader } from "../components/FrostedHeader";
@@ -9,9 +9,9 @@ import { BottomBar } from "../components/bottombar";
 import { daysUntil } from "../utils/date";
 import { ModalSheet } from "../components/ModalSheet";
 import { api, tgInitData, TempProfile, getInviteToken } from "../api";
-import coupleImage from "../assets/married-people.png";
+import coupleImage from "../assets/married-people-v2.png";
 import { Toast } from "../components/Toast";
-import { getTelegramUser } from "../utils/telegram";
+import { getTelegramUser, getTelegramUserId } from "../utils/telegram";
 
 const WEDDING_ISO = "2026-07-25T16:00:00+03:00";
 
@@ -52,9 +52,8 @@ const alcoholOptions = [
   "Вино красное",
   "Вино белое",
   "Шампанское",
-  "Вода",
   "Коньяк",
-  "Не пью",
+  "Не пью алкоголь",
 ];
 
 function reducer(state: State, action: Action): State {
@@ -74,21 +73,16 @@ function reducer(state: State, action: Action): State {
   }
 }
 
-function getLocalId(): number {
-  const key = "wedding.telegram_id";
-  const raw = localStorage.getItem(key);
-  if (raw) return Number(raw);
-  const generated = 100000 + Math.floor(Math.random() * 900000);
-  localStorage.setItem(key, String(generated));
-  return generated;
+function profileStorageKey(userId: number | null) {
+  return userId ? `wedding.profile.${userId}` : "wedding.profile.guest";
 }
 
-function saveLocalProfile(data: TempProfile) {
-  localStorage.setItem("wedding.profile", JSON.stringify(data));
+function saveLocalProfile(userId: number | null, data: TempProfile) {
+  localStorage.setItem(profileStorageKey(userId), JSON.stringify(data));
 }
 
-function loadLocalProfile(): TempProfile | null {
-  const raw = localStorage.getItem("wedding.profile");
+function loadLocalProfile(userId: number | null): TempProfile | null {
+  const raw = localStorage.getItem(profileStorageKey(userId));
   if (!raw) return null;
   try {
     return JSON.parse(raw);
@@ -109,6 +103,9 @@ export function HomeScreen(props: {
   const [toastVariant, setToastVariant] = useState<"ok" | "error">("ok");
   const [pendingRsvp, setPendingRsvp] = useState<SegValue | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const dirtyRef = useRef(false);
+  const [rsvpTouched, setRsvpTouched] = useState(false);
+  const [showFirstTime, setShowFirstTime] = useState(false);
 
   const days = useMemo(() => daysUntil(WEDDING_ISO), []);
   const rsvpStatus =
@@ -120,11 +117,10 @@ export function HomeScreen(props: {
 
   useEffect(() => {
     const tgUser = getTelegramUser();
-    if (tgUser?.id) {
-      localStorage.setItem("wedding.telegram_id", String(tgUser.id));
-    }
-    const local = loadLocalProfile();
+    const tgUserId = getTelegramUserId();
+    const local = loadLocalProfile(tgUserId);
     if (local) {
+      const alcohol = (local.alcohol || []).map((v) => v === "Не пью" ? "Не пью алкоголь" : v);
       dispatch({ type: "hydrate", value: {
         rsvp: local.rsvp || "yes",
         fullName: local.fullName || local.full_name || "",
@@ -135,16 +131,31 @@ export function HomeScreen(props: {
         relative: Boolean(local.relative),
         food: local.food || "",
         allergies: local.allergies || "",
-        alcohol: local.alcohol || []
+        alcohol
       }});
+      if (local.rsvp === "yes" || local.rsvp === "no" || local.rsvp === "maybe") {
+        setRsvpTouched(true);
+        setShowFirstTime(false);
+      }
     }
     const initData = tgInitData();
     const inviteToken = getInviteToken();
     if (initData || inviteToken) {
       api.auth().then(() => api.getProfile()).then((remote: any) => {
         if (!remote) return;
+        if (dirtyRef.current) return;
+        const alcohol = (remote.alcohol_prefs || []).map((v: string) =>
+          v === "Не пью" ? "Не пью алкоголь" : v
+        );
+        const remoteRsvp = remote.rsvp_status || "";
+        if (remoteRsvp === "yes" || remoteRsvp === "no" || remoteRsvp === "maybe") {
+          setRsvpTouched(true);
+          setShowFirstTime(false);
+        } else {
+          setShowFirstTime(true);
+        }
         dispatch({ type: "hydrate", value: {
-          rsvp: remote.rsvp_status || "yes",
+          rsvp: remoteRsvp || "yes",
           fullName: remote.full_name || "",
           birthDate: remote.birth_date || "",
           gender: remote.gender || "",
@@ -153,7 +164,7 @@ export function HomeScreen(props: {
           relative: Boolean(remote.is_relative),
           food: remote.food_pref || "",
           allergies: remote.food_allergies || "",
-          alcohol: remote.alcohol_prefs || []
+          alcohol
         }});
       }).catch(() => {});
     }
@@ -161,8 +172,11 @@ export function HomeScreen(props: {
     if (tgUser && !local?.fullName && !local?.full_name) {
       const name = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(" ").trim();
       if (name) {
-        dispatch({ type: "hydrate", value: { fullName: name } });
+        if (!dirtyRef.current) dispatch({ type: "hydrate", value: { fullName: name } });
       }
+    }
+    if (!local) {
+      setShowFirstTime(true);
     }
   }, []);
 
@@ -170,9 +184,11 @@ export function HomeScreen(props: {
     if (next === state.rsvp) return;
     setPendingRsvp(next);
     setConfirmOpen(true);
+    setRsvpTouched(true);
   }
 
   function buildProfilePayload(nextRsvp?: SegValue) {
+    const alcohol = (state.alcohol || []).map((v) => (v === "Не пью" ? "Не пью алкоголь" : v));
     return {
       rsvp_status: nextRsvp || state.rsvp,
       full_name: state.fullName || null,
@@ -183,7 +199,7 @@ export function HomeScreen(props: {
       is_relative: state.relative,
       food_pref: state.food || null,
       food_allergies: state.allergies || null,
-      alcohol_prefs: state.alcohol || []
+      alcohol_prefs: alcohol
     };
   }
 
@@ -200,14 +216,15 @@ export function HomeScreen(props: {
     } catch (e: any) {
       const msg = String(e?.message || "");
       setToastVariant("error");
-      setToast(msg.includes("NO_INITDATA") ? "Откройте через Telegram" : "Не удалось сохранить");
+      setToast(msg.includes("NO_INITDATA") ? "Откройте через Telegram" : msg || "Не удалось сохранить");
     } finally {
       setTimeout(() => setToast(""), 2000);
     }
   }
 
   function applyRsvp(next: SegValue) {
-    const existing = loadLocalProfile();
+    const tgUserId = getTelegramUserId();
+    const existing = loadLocalProfile(tgUserId);
     const updated: TempProfile = {
       ...(existing || {}),
       rsvp: next,
@@ -218,10 +235,11 @@ export function HomeScreen(props: {
     dispatch({ type: "rsvp", value: next });
     setConfirmOpen(false);
     setPendingRsvp(null);
+    setShowFirstTime(false);
     if (next === "no") {
       setExpanded(false);
     }
-    saveLocalProfile(updated);
+    saveLocalProfile(tgUserId, updated);
     saveProfileToBackend(buildProfilePayload(next), "Статус сохранён");
   }
 
@@ -234,6 +252,14 @@ export function HomeScreen(props: {
     const rest = digits.startsWith("7") ? digits.slice(1) : digits;
     const next = `+7${rest}`.slice(0, 12);
     dispatch({ type: "field", key: "phone", value: next });
+  }
+
+  function validateProfile(): string[] {
+    const missing: string[] = [];
+    if (!rsvpTouched) missing.push("Статус присутствия");
+    if (!state.fullName.trim()) missing.push("ФИО");
+    if (state.rsvp === "no" && !state.phone.trim()) missing.push("Телефон");
+    return missing;
   }
 
   return (
@@ -261,6 +287,11 @@ export function HomeScreen(props: {
             onChange={(value) => confirmRsvpChange(value)}
           />
           <div className={styles.rsvpStatus}>{rsvpStatus}</div>
+          {showFirstTime ? (
+            <div className={styles.firstTimeBanner}>
+              Вы не выбрали свой статус — отметьте, будете ли вы присутствовать на свадьбе.
+            </div>
+          ) : null}
           {state.rsvp === "no" ? (
             <div className={styles.rsvpHint}>Остальная информация не требуется.</div>
           ) : null}
@@ -272,7 +303,10 @@ export function HomeScreen(props: {
               <input
                 className={styles.input}
                 value={state.fullName}
-                onChange={(e) => dispatch({ type: "field", key: "fullName", value: e.target.value })}
+                onChange={(e) => {
+                  dirtyRef.current = true;
+                  dispatch({ type: "field", key: "fullName", value: e.target.value });
+                }}
               />
             </FormField>
             {state.rsvp === "no" ? (
@@ -283,7 +317,10 @@ export function HomeScreen(props: {
                   placeholder="+7 XXX XXX-XX-XX"
                   value={state.phone}
                   onFocus={handlePhoneFocus}
-                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  onChange={(e) => {
+                    dirtyRef.current = true;
+                    handlePhoneChange(e.target.value);
+                  }}
                 />
               </FormField>
             ) : (
@@ -293,14 +330,20 @@ export function HomeScreen(props: {
                     className={styles.input}
                     type="date"
                     value={state.birthDate}
-                    onChange={(e) => dispatch({ type: "field", key: "birthDate", value: e.target.value })}
+                    onChange={(e) => {
+                      dirtyRef.current = true;
+                      dispatch({ type: "field", key: "birthDate", value: e.target.value });
+                    }}
                   />
                 </FormField>
                 <FormField label="Пол">
                   <select
                     className={styles.input}
                     value={state.gender}
-                    onChange={(e) => dispatch({ type: "field", key: "gender", value: e.target.value })}
+                    onChange={(e) => {
+                      dirtyRef.current = true;
+                      dispatch({ type: "field", key: "gender", value: e.target.value });
+                    }}
                   >
                     <option value="">Выбрать</option>
                 <option value="Мужской">Мужской</option>
@@ -330,14 +373,20 @@ export function HomeScreen(props: {
                       placeholder="+7 XXX XXX-XX-XX"
                       value={state.phone}
                       onFocus={handlePhoneFocus}
-                      onChange={(e) => handlePhoneChange(e.target.value)}
+                      onChange={(e) => {
+                        dirtyRef.current = true;
+                        handlePhoneChange(e.target.value);
+                      }}
                     />
                   </FormField>
                   <FormField label="С чьей стороны">
                     <select
                       className={styles.input}
                       value={state.side}
-                      onChange={(e) => dispatch({ type: "field", key: "side", value: e.target.value })}
+                      onChange={(e) => {
+                        dirtyRef.current = true;
+                        dispatch({ type: "field", key: "side", value: e.target.value });
+                      }}
                     >
                       <option value="">Выбрать</option>
                       <option value="groom">Жених</option>
@@ -350,7 +399,10 @@ export function HomeScreen(props: {
                       className={styles.checkbox}
                       type="checkbox"
                       checked={state.relative}
-                      onChange={() => dispatch({ type: "toggle", key: "relative" })}
+                      onChange={() => {
+                        dirtyRef.current = true;
+                        dispatch({ type: "toggle", key: "relative" });
+                      }}
                     />
                     <span>Родственник</span>
                   </div>
@@ -358,7 +410,10 @@ export function HomeScreen(props: {
                     <select
                       className={styles.input}
                       value={state.food}
-                      onChange={(e) => dispatch({ type: "field", key: "food", value: e.target.value })}
+                      onChange={(e) => {
+                        dirtyRef.current = true;
+                        dispatch({ type: "field", key: "food", value: e.target.value });
+                      }}
                     >
                       <option value="">Выбрать</option>
                       <option value="Мясо">Мясо</option>
@@ -371,7 +426,10 @@ export function HomeScreen(props: {
                     <textarea
                       className={styles.textarea}
                       value={state.allergies}
-                      onChange={(e) => dispatch({ type: "field", key: "allergies", value: e.target.value })}
+                      onChange={(e) => {
+                        dirtyRef.current = true;
+                        dispatch({ type: "field", key: "allergies", value: e.target.value });
+                      }}
                     />
                   </FormField>
                   <div className={styles.subSection}>
@@ -379,8 +437,11 @@ export function HomeScreen(props: {
                     <ChipsMultiSelect
                       options={alcoholOptions}
                       value={state.alcohol}
-                      exclusiveLabel="Не пью"
-                      onChange={(next) => dispatch({ type: "alcohol", value: next })}
+                      exclusiveLabel="Не пью алкоголь"
+                      onChange={(next) => {
+                        dirtyRef.current = true;
+                        dispatch({ type: "alcohol", value: next });
+                      }}
                     />
                   </div>
                 </div>
@@ -395,7 +456,16 @@ export function HomeScreen(props: {
           className={styles.saveButton}
           disabled={saving}
           onClick={() => {
+            const missing = validateProfile();
+            if (missing.length) {
+              setToastVariant("error");
+              setToast(`Заполните: ${missing.join(", ")}`);
+              setTimeout(() => setToast(""), 2200);
+              return;
+            }
+            setShowFirstTime(false);
             setSaving(true);
+            const tgUserId = getTelegramUserId();
             const payload: TempProfile = {
               rsvp: state.rsvp,
               fullName: state.fullName,
@@ -410,7 +480,7 @@ export function HomeScreen(props: {
               alcohol: state.alcohol
             };
             try {
-              saveLocalProfile(payload);
+              saveLocalProfile(tgUserId, payload);
               saveProfileToBackend(buildProfilePayload(), "Анкета сохранена");
             } finally {
               setTimeout(() => setSaving(false), 300);

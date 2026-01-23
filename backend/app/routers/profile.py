@@ -53,10 +53,19 @@ def _guest_from_initdata(initdata: str | None, invite_token: str | None, db: Ses
 def _split_csv(v: str | None) -> list[str]:
     if not v:
         return []
-    return [x for x in (s.strip() for s in v.split(",")) if x]
+    out = [x for x in (s.strip() for s in v.split(",")) if x]
+    return ["Не пью алкоголь" if x == "Не пью" else x for x in out]
 
 def _join_csv(v: list[str]) -> str:
-    return ",".join([x.strip() for x in v if x.strip()])
+    normalized = []
+    for item in v:
+        value = item.strip()
+        if not value:
+            continue
+        if value == "Не пью":
+            value = "Не пью алкоголь"
+        normalized.append(value)
+    return ",".join(normalized)
 
 async def _log_change(db: Session, guest_id: int, field: str, old, new):
     if str(old) == str(new):

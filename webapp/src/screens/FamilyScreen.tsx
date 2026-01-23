@@ -5,6 +5,7 @@ import { GlassCard } from "../components/GlassCard";
 import { BottomBar } from "../components/bottombar";
 import { FamilyPayload, inviteFamily, loadFamily, saveFamily, familyStatus } from "../api";
 import { Toast } from "../components/Toast";
+import { getTelegramUserId } from "../utils/telegram";
 
 type Child = { id: string; name: string; age: string; note: string };
 
@@ -63,12 +64,16 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
   const [toastVariant, setToastVariant] = useState<"ok" | "error">("ok");
   const [members, setMembers] = useState<Array<{ name: string; rsvp: string }>>([]);
 
-  function saveLocalFamily(data: FamilyPayload) {
-    localStorage.setItem("wedding.family", JSON.stringify(data));
+  function familyStorageKey(userId: number | null) {
+    return userId ? `wedding.family.${userId}` : "wedding.family.guest";
   }
 
-  function loadLocalFamily(): FamilyPayload | null {
-    const raw = localStorage.getItem("wedding.family");
+  function saveLocalFamily(userId: number | null, data: FamilyPayload) {
+    localStorage.setItem(familyStorageKey(userId), JSON.stringify(data));
+  }
+
+  function loadLocalFamily(userId: number | null): FamilyPayload | null {
+    const raw = localStorage.getItem(familyStorageKey(userId));
     if (!raw) return null;
     try {
       return JSON.parse(raw);
@@ -92,7 +97,7 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
   }
 
   useEffect(() => {
-    const local = loadLocalFamily();
+    const local = loadLocalFamily(getTelegramUserId());
     if (local) {
       dispatch({ type: "hydrate", value: local });
     }
@@ -252,16 +257,17 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
               partnerConfirmed: Boolean(invite?.confirmed),
               children: state.children,
             };
-            saveLocalFamily(payload);
+            saveLocalFamily(getTelegramUserId(), payload);
             saveFamily(payload)
               .then(() => {
                 setToastVariant("ok");
                 setToast("Сохранено");
                 setTimeout(() => setToast(""), 2000);
               })
-              .catch(() => {
+              .catch((err: any) => {
+                const msg = String(err?.message || "");
                 setToastVariant("error");
-                setToast("Не удалось сохранить");
+                setToast(msg || "Не удалось сохранить");
                 setTimeout(() => setToast(""), 2200);
               })
               .finally(() => setSaving(false));
