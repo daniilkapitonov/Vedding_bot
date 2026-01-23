@@ -26,7 +26,7 @@ async def notify_admins(event: str, payload: dict):
 def _system_notifications_enabled(db: Session, admin_id: int) -> bool:
     row = db.query(AdminSettings).filter(AdminSettings.admin_id == admin_id).one_or_none()
     if not row:
-        return True
+        return False
     return bool(row.system_notifications_enabled)
 
 async def send_admin_message(text: str, category: str = "system", db: Session | None = None) -> bool:

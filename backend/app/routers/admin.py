@@ -179,7 +179,7 @@ def get_notification_settings(
     if not x_internal_secret or x_internal_secret != settings.INTERNAL_SECRET:
         raise HTTPException(403, "Forbidden")
     row = db.query(AdminSettings).filter(AdminSettings.admin_id == admin_id).one_or_none()
-    enabled = True if not row else bool(row.system_notifications_enabled)
+    enabled = False if not row else bool(row.system_notifications_enabled)
     return {"admin_id": admin_id, "system_notifications_enabled": enabled}
 
 @router.post("/notification-settings")

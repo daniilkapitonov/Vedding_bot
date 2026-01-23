@@ -27,6 +27,7 @@
   height: auto;
   max-height: clamp(220px, 50vh, 420px);
   object-fit: contain;
+  border-radius: 20px;
   display: block;
 }
 

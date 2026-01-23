@@ -89,5 +89,8 @@ class FamilyOut(BaseModel):
     partner_name: Optional[str] = None
     children: List[dict] = []
 
-class FamilyInviteByNameIn(BaseModel):
-    full_name: str
+class FamilyInviteByUsernameIn(BaseModel):
+    username: str
+
+class FamilyCheckUsernameIn(BaseModel):
+    username: str

@@ -3,7 +3,7 @@ import styles from "./FamilyScreen.module.css";
 import { FrostedHeader } from "../components/FrostedHeader";
 import { GlassCard } from "../components/GlassCard";
 import { BottomBar } from "../components/bottombar";
-import { FamilyPayload, inviteFamily, loadFamily, saveFamily, familyStatus } from "../api";
+import { FamilyPayload, inviteFamily, loadFamily, saveFamily, familyStatus, checkFamilyUsername } from "../api";
 import { Toast } from "../components/Toast";
 import { getTelegramUserId } from "../utils/telegram";
 
@@ -11,13 +11,13 @@ type Child = { id: string; name: string; age: string; note: string };
 
 type State = {
   withPartner: boolean;
-  partnerName: string;
+  partnerUsername: string;
   children: Child[];
 };
 
 type Action =
   | { type: "toggle" }
-  | { type: "partner"; key: "partnerName"; value: string }
+  | { type: "partner"; key: "partnerUsername"; value: string }
   | { type: "addChild" }
   | { type: "removeChild"; id: string }
   | { type: "child"; id: string; key: keyof Child; value: string }
@@ -25,7 +25,7 @@ type Action =
 
 const initialState: State = {
   withPartner: false,
-  partnerName: "",
+  partnerUsername: "",
   children: [],
 };
 
@@ -99,7 +99,11 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
   useEffect(() => {
     const local = loadLocalFamily(getTelegramUserId());
     if (local) {
-      dispatch({ type: "hydrate", value: local });
+      dispatch({ type: "hydrate", value: {
+        withPartner: Boolean(local.withPartner),
+        partnerUsername: (local as any).partnerUsername || local.partnerName || "",
+        children: local.children || []
+      }});
     }
     const localInvite = loadLocalInvite();
     if (localInvite) setInvite(localInvite);
@@ -107,7 +111,7 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
       if (res) {
         dispatch({ type: "hydrate", value: {
           withPartner: Boolean(res.withPartner),
-          partnerName: res.partnerName || "",
+          partnerUsername: res.partnerName || "",
           children: res.children || []
         }});
       }
@@ -161,50 +165,93 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
               </div>
               <input
                 className={styles.input}
-                placeholder="ФИО партнёра"
-                value={state.partnerName}
-                onChange={(e) => dispatch({ type: "partner", key: "partnerName", value: e.target.value })}
+                placeholder="Ник Telegram (например, @username)"
+                value={state.partnerUsername}
+                onChange={(e) => dispatch({ type: "partner", key: "partnerUsername", value: e.target.value })}
               />
-              <button
-                className={styles.inviteBtn}
-                disabled={!state.partnerName}
-                onClick={() => {
-                  const name = state.partnerName.trim();
-                  if (!name) {
-                    setToastVariant("error");
-                    setToast("Введите ФИО партнёра");
-                    setTimeout(() => setToast(""), 2200);
-                    return;
-                  }
-                  inviteFamily(name)
-                    .then((res: any) => {
-                      if (!res?.ok) {
-                        setToastVariant("error");
-                        setToast("Такого гостя нет в списке");
-                        setTimeout(() => setToast(""), 2200);
-                        return;
-                      }
-                      setInvite({ status: "sent", confirmed: false });
-                      setToastVariant("ok");
-                      setToast("Приглашение отправлено");
-                      setTimeout(() => setToast(""), 2000);
-                    })
-                    .catch((err: any) => {
-                      const msg = String(err?.message || "");
-                      if (msg.includes("Guest not found")) {
-                        setToastVariant("error");
-                        setToast("Такого гостя нет в списке");
-                        setTimeout(() => setToast(""), 2200);
-                        return;
-                      }
+              <div className={styles.inviteRow}>
+                <button
+                  className={styles.checkBtn}
+                  disabled={!state.partnerUsername}
+                  onClick={() => {
+                    const username = state.partnerUsername.trim();
+                    if (!username) {
                       setToastVariant("error");
-                      setToast("Не удалось отправить приглашение");
+                      setToast("Введите ник Telegram");
                       setTimeout(() => setToast(""), 2200);
-                    });
-                }}
-              >
-                Отправить приглашение
-              </button>
+                      return;
+                    }
+                    checkFamilyUsername(username)
+                      .then((res: any) => {
+                        if (!res?.found) {
+                          setToastVariant("error");
+                          setToast("Пользователь не найден");
+                          setTimeout(() => setToast(""), 2200);
+                          return;
+                        }
+                        const name = res?.name ? `Найден: ${res.name}` : "Пользователь найден";
+                        setToastVariant("ok");
+                        setToast(name);
+                        setTimeout(() => setToast(""), 2000);
+                      })
+                      .catch((err: any) => {
+                        const msg = String(err?.message || "");
+                        if (msg.includes("Multiple")) {
+                          setToastVariant("error");
+                          setToast("Найдено несколько пользователей");
+                        } else {
+                          setToastVariant("error");
+                          setToast("Не удалось проверить");
+                        }
+                        setTimeout(() => setToast(""), 2200);
+                      });
+                  }}
+                >
+                  Проверить
+                </button>
+                <button
+                  className={styles.inviteBtn}
+                  disabled={!state.partnerUsername}
+                  onClick={() => {
+                    const username = state.partnerUsername.trim();
+                    if (!username) {
+                      setToastVariant("error");
+                      setToast("Введите ник Telegram");
+                      setTimeout(() => setToast(""), 2200);
+                      return;
+                    }
+                    inviteFamily(username)
+                      .then((res: any) => {
+                        if (!res?.ok) {
+                          setToastVariant("error");
+                          setToast("Пользователь не найден");
+                          setTimeout(() => setToast(""), 2200);
+                          return;
+                        }
+                        setInvite({ status: "sent", confirmed: false });
+                        setToastVariant("ok");
+                        setToast("Приглашение отправлено");
+                        setTimeout(() => setToast(""), 2000);
+                      })
+                      .catch((err: any) => {
+                        const msg = String(err?.message || "");
+                        if (msg.includes("User not found")) {
+                          setToastVariant("error");
+                          setToast("Пользователь не найден");
+                        } else if (msg.includes("Multiple")) {
+                          setToastVariant("error");
+                          setToast("Найдено несколько пользователей");
+                        } else {
+                          setToastVariant("error");
+                          setToast("Не удалось отправить приглашение");
+                        }
+                        setTimeout(() => setToast(""), 2200);
+                      });
+                  }}
+                >
+                  Отправить приглашение
+                </button>
+              </div>
             </div>
           ) : null}
         </GlassCard>
@@ -253,7 +300,7 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
             setSaving(true);
             const payload: FamilyPayload = {
               withPartner: state.withPartner,
-              partnerName: state.partnerName,
+              partnerName: state.partnerUsername,
               partnerConfirmed: Boolean(invite?.confirmed),
               children: state.children,
             };

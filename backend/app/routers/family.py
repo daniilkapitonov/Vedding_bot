@@ -9,7 +9,7 @@ from ..db import get_db
 from ..models import Guest, Profile, FamilyGroup, InviteToken, FamilyProfile
 from ..config import settings
 from ..services.telegram_auth import verify_telegram_init_data, get_guest_from_invite
-from ..schemas import FamilyAcceptIn, FamilyInviteOut, FamilyStatusOut, FamilySaveIn, FamilyOut, FamilyInviteByNameIn
+from ..schemas import FamilyAcceptIn, FamilyInviteOut, FamilyStatusOut, FamilySaveIn, FamilyOut, FamilyInviteByUsernameIn, FamilyCheckUsernameIn
 from ..services.notifier import send_admin_message
 
 router = APIRouter(prefix="/api/family", tags=["family"])
@@ -211,25 +211,54 @@ async def save_family(
             pass
     return FamilyOut(with_partner=row.with_partner, partner_name=row.partner_name, children=body.children or [])
 
-@router.post("/invite-by-name")
-def invite_by_name(
-    body: FamilyInviteByNameIn,
+def _normalize_username(username: str) -> str:
+    return username.strip().lstrip("@").lower()
+
+@router.post("/check-username")
+def check_username(
+    body: FamilyCheckUsernameIn,
+    x_tg_initdata: str | None = Header(default=None),
+    x_invite_token: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    _guest_from_initdata(x_tg_initdata, x_invite_token, db)
+    username = _normalize_username(body.username or "")
+    if not username:
+        raise HTTPException(400, "Missing username")
+    rows = db.query(Guest, Profile).join(Profile, Profile.guest_id == Guest.id).filter(
+        Guest.username.ilike(username)
+    ).all()
+    if not rows:
+        return {"found": False}
+    if len(rows) > 1:
+        raise HTTPException(409, "Multiple users found")
+    g, p = rows[0]
+    name = p.full_name or f"{g.first_name or ''} {g.last_name or ''}".strip() or "—"
+    return {"found": True, "guest_id": g.id, "name": name, "username": g.username}
+
+@router.post("/invite-by-username")
+def invite_by_username(
+    body: FamilyInviteByUsernameIn,
     x_tg_initdata: str | None = Header(default=None),
     x_invite_token: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ):
     guest = _guest_from_initdata(x_tg_initdata, x_invite_token, db)
-    full_name = (body.full_name or "").strip()
-    if not full_name:
-        raise HTTPException(400, "Missing full_name")
+    username = _normalize_username(body.username or "")
+    if not username:
+        raise HTTPException(400, "Missing username")
 
-    candidate = (
-        db.query(Profile)
-        .filter(Profile.full_name.ilike(full_name))
-        .one_or_none()
+    candidates = (
+        db.query(Guest, Profile)
+        .join(Profile, Profile.guest_id == Guest.id)
+        .filter(Guest.username.ilike(username))
+        .all()
     )
-    if not candidate:
-        raise HTTPException(404, "Guest not found")
+    if not candidates:
+        raise HTTPException(404, "User not found")
+    if len(candidates) > 1:
+        raise HTTPException(409, "Multiple users found")
+    other_guest, _profile = candidates[0]
 
     if guest.family_group_id is None:
         group = FamilyGroup()
@@ -239,13 +268,23 @@ def invite_by_name(
         db.add(guest)
         db.commit()
 
-    other = db.query(Guest).filter(Guest.id == candidate.guest_id).one_or_none()
-    if other and other.family_group_id != guest.family_group_id:
-        other.family_group_id = guest.family_group_id
-        db.add(other)
+    if other_guest.family_group_id != guest.family_group_id:
+        other_guest.family_group_id = guest.family_group_id
+        db.add(other_guest)
         db.commit()
 
     return {"ok": True, "family_group_id": guest.family_group_id}
+
+# legacy alias
+@router.post("/invite-by-name")
+def invite_by_name_legacy(
+    body: dict,
+    x_tg_initdata: str | None = Header(default=None),
+    x_invite_token: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    username = body.get("username") or body.get("full_name") or ""
+    return invite_by_username(FamilyInviteByUsernameIn(username=username), x_tg_initdata, x_invite_token, db)
 
 @router.get("/invite/{token}")
 def invite_info(token: str, db: Session = Depends(get_db)):

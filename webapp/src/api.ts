@@ -128,7 +128,11 @@ export async function loadFamily() {
 }
 
 export async function inviteFamily(fullName: string) {
-  return req("/api/family/invite-by-name", "POST", { full_name: fullName });
+  return req("/api/family/invite-by-username", "POST", { username: fullName });
+}
+
+export async function checkFamilyUsername(username: string) {
+  return req("/api/family/check-username", "POST", { username });
 }
 
 export async function familyStatus() {

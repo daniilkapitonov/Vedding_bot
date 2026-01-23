@@ -12,8 +12,8 @@ bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
 app = Flask(__name__)
 BOT_USERNAME = None
 ADMIN_STATE = {}
-SYS_OFF_LABEL = "🔕 Отключить системные уведомления"
-SYS_ON_LABEL = "🔔 Включить системные уведомления"
+SYS_OFF_LABEL = "🔕 Системные уведомления: ВЫКЛ"
+SYS_ON_LABEL = "🔔 Системные уведомления: ВКЛ"
 
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
@@ -33,8 +33,8 @@ def api_delete(path: str):
 def get_system_notifications_enabled(admin_id: int) -> bool:
     res = api_get("/api/admin/notification-settings", params={"admin_id": admin_id})
     if res.ok:
-        return bool(res.json().get("system_notifications_enabled", True))
-    return True
+        return bool(res.json().get("system_notifications_enabled", False))
+    return False
 
 def set_system_notifications_enabled(admin_id: int, enabled: bool) -> bool:
     res = api_post("/api/admin/notification-settings", {"admin_id": admin_id, "system_notifications_enabled": enabled})
@@ -179,15 +179,6 @@ def admin_delete_guest(m: Message):
     bot.send_message(m.chat.id, "Введите ID гостя или текст для поиска.")
     ADMIN_STATE[m.chat.id] = {"mode": "delete_lookup"}
 
-@bot.message_handler(func=lambda m: is_admin(m.from_user.id) and m.text == "Где БД?")
-def admin_db_info(m: Message):
-    bot.send_message(
-        m.chat.id,
-        "БД SQLite хранится в backend/data/app.db.\n"
-        "В prod это файл на сервере (bind-mount), в git он не хранится.\n"
-        "В dev БД может быть пустой/отсутствовать до первого запуска."
-    )
-
 @bot.message_handler(func=lambda m: is_admin(m.from_user.id) and m.text == "DB Health")
 def admin_db_health(m: Message):
     res = api_get("/api/admin/db-health")
@@ -219,8 +210,8 @@ def admin_toggle_notifications(m: Message):
     current = get_system_notifications_enabled(m.from_user.id)
     target = not current
     if set_system_notifications_enabled(m.from_user.id, target):
-        status = "включены" if target else "отключены"
-        bot.send_message(m.chat.id, f"Системные уведомления {status}.", reply_markup=admin_kb(target))
+        status = "ВКЛ" if target else "ВЫКЛ"
+        bot.send_message(m.chat.id, f"Системные уведомления: {status}", reply_markup=admin_kb(target))
     else:
         bot.send_message(m.chat.id, "Не удалось изменить настройки уведомлений.")
 
