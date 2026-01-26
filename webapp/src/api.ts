@@ -107,7 +107,7 @@ export type FamilyPayload = {
   withPartner: boolean;
   partnerName?: string;
   partnerConfirmed?: boolean;
-  children: Array<{ id: string; name: string; age: string; note: string }>;
+  children: Array<{ id: string; name: string; age: string; note: string; child_contact?: string | null }>;
 };
 
 export async function saveFamily(data: FamilyPayload) {
@@ -141,6 +141,12 @@ export async function cancelFamilyInviteByUsername(username: string) {
 
 export async function leaveFamily() {
   return req("/api/family/leave", "POST");
+}
+
+export async function removePartner(partnerTelegramUserId?: number) {
+  return req("/api/family/remove-partner", "POST", {
+    partner_telegram_user_id: partnerTelegramUserId || null,
+  });
 }
 
 export async function familyStatus() {

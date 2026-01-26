@@ -92,6 +92,9 @@ class FamilyOut(BaseModel):
 class FamilyInviteByUsernameIn(BaseModel):
     username: str
 
+class FamilyRemovePartnerIn(BaseModel):
+    partner_telegram_user_id: Optional[int] = None
+
 class FamilyCheckUsernameIn(BaseModel):
     username: str
 

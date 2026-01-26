@@ -4,15 +4,18 @@ from sqlalchemy import select
 import secrets
 from datetime import datetime, timedelta
 import json
+import logging
+import httpx
 
 from ..db import get_db
 from ..models import Guest, Profile, FamilyGroup, InviteToken, FamilyProfile
 from ..config import settings
 from ..services.telegram_auth import verify_telegram_init_data, get_guest_from_invite
-from ..schemas import FamilyAcceptIn, FamilyInviteOut, FamilyStatusOut, FamilySaveIn, FamilyOut, FamilyInviteByUsernameIn, FamilyCheckUsernameIn, FamilyIncomingInviteOut
+from ..schemas import FamilyAcceptIn, FamilyInviteOut, FamilyStatusOut, FamilySaveIn, FamilyOut, FamilyInviteByUsernameIn, FamilyCheckUsernameIn, FamilyIncomingInviteOut, FamilyRemovePartnerIn
 from ..services.notifier import send_admin_message, send_user_message
 
 router = APIRouter(prefix="/api/family", tags=["family"])
+logger = logging.getLogger(__name__)
 
 
 def _guest_from_initdata(initdata: str | None, invite_token: str | None, db: Session) -> Guest:
@@ -70,6 +73,10 @@ def invite_family(
         guest.family_group_id = group.id
         db.add(guest)
         db.commit()
+    else:
+        member_count = db.query(Guest).filter(Guest.family_group_id == guest.family_group_id).count()
+        if member_count >= 2:
+            raise HTTPException(409, "Family already has 2 adults")
 
     token = secrets.token_urlsafe(16)
     invite = InviteToken(
@@ -134,6 +141,7 @@ def family_status(
         out.append({
             "guest_id": g.id,
             "telegram_user_id": g.telegram_user_id,
+            "username": g.username,
             "name": name,
             "rsvp": p.rsvp_status,
         })
@@ -157,6 +165,34 @@ def get_family(
             children = []
     return FamilyOut(with_partner=row.with_partner, partner_name=row.partner_name, children=children)
 
+def _normalize_child_contact(value: str | None) -> str:
+    if not value:
+        return ""
+    v = value.strip().lower()
+    if v.startswith("https://t.me/"):
+        v = v.replace("https://t.me/", "", 1)
+    if v.startswith("http://t.me/"):
+        v = v.replace("http://t.me/", "", 1)
+    if v.startswith("t.me/"):
+        v = v.replace("t.me/", "", 1)
+    return v.lstrip("@")
+
+async def _resolve_username(username: str) -> tuple[str | None, int | None]:
+    if not settings.BOT_TOKEN or not username:
+        return None, None
+    url = f"https://api.telegram.org/bot{settings.BOT_TOKEN}/getChat"
+    async with httpx.AsyncClient(timeout=6) as client:
+        try:
+            resp = await client.get(url, params={"chat_id": f"@{username}"})
+            data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+            if not data.get("ok"):
+                return None, None
+            result = data.get("result") or {}
+            return result.get("username") or username, result.get("id")
+        except Exception as e:
+            logger.warning("resolve username failed: %s", str(e))
+            return None, None
+
 @router.post("/save", response_model=FamilyOut)
 async def save_family(
     body: FamilySaveIn,
@@ -171,7 +207,35 @@ async def save_family(
         "partner_name": row.partner_name if row else None,
         "children_count": len(json.loads(row.children_json)) if row and row.children_json else 0,
     }
-    children_json = json.dumps(body.children or [])
+    children_input = body.children or []
+    normalized_children = []
+    for child in children_input:
+        if not isinstance(child, dict):
+            continue
+        contact = _normalize_child_contact(child.get("child_contact") or child.get("contact"))
+        username = None
+        user_id = None
+        if contact:
+            username, user_id = await _resolve_username(contact)
+            if user_id:
+                try:
+                    await send_user_message(
+                        user_id,
+                        "Вас добавили в семейную группу приглашения на свадьбу. Подтверждение не требуется."
+                    )
+                except Exception:
+                    pass
+        normalized_child = {
+            "id": child.get("id"),
+            "name": child.get("name"),
+            "age": child.get("age"),
+            "note": child.get("note"),
+            "child_contact": contact or None,
+            "child_telegram_username": username or None,
+            "child_telegram_user_id": user_id,
+        }
+        normalized_children.append(normalized_child)
+    children_json = json.dumps(normalized_children)
     if not row:
         row = FamilyProfile(
             guest_id=guest.id,
@@ -209,7 +273,7 @@ async def save_family(
             await send_admin_message("\n".join(lines), category="system", db=db)
         except Exception:
             pass
-    return FamilyOut(with_partner=row.with_partner, partner_name=row.partner_name, children=body.children or [])
+    return FamilyOut(with_partner=row.with_partner, partner_name=row.partner_name, children=normalized_children)
 
 def _normalize_username(username: str) -> str:
     value = (username or "").strip().lower()
@@ -469,6 +533,58 @@ async def cancel_invite_by_username(
         await send_user_message(
             invitee.telegram_user_id,
             "Приглашение в семью отменено отправителем."
+        )
+    except Exception:
+        pass
+    return {"ok": True}
+
+@router.post("/remove-partner")
+async def remove_partner(
+    body: FamilyRemovePartnerIn,
+    x_tg_initdata: str | None = Header(default=None),
+    x_invite_token: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    guest = _guest_from_initdata(x_tg_initdata, x_invite_token, db)
+    if not guest.family_group_id:
+        return {"ok": True}
+    members = db.query(Guest).filter(Guest.family_group_id == guest.family_group_id).all()
+    if len(members) <= 1:
+        guest.family_group_id = None
+        db.add(guest)
+        db.commit()
+        return {"ok": True}
+    partner = None
+    if body.partner_telegram_user_id:
+        for m in members:
+            if m.telegram_user_id == body.partner_telegram_user_id:
+                partner = m
+                break
+    else:
+        partner = next((m for m in members if m.telegram_user_id != guest.telegram_user_id), None)
+    if not partner:
+        raise HTTPException(404, "Partner not found")
+    if partner.telegram_user_id == guest.telegram_user_id:
+        raise HTTPException(400, "Self remove not allowed")
+
+    group_id = guest.family_group_id
+    guest.family_group_id = None
+    partner.family_group_id = None
+    db.add(guest)
+    db.add(partner)
+    # cancel pending invites for this group
+    db.query(InviteToken).filter(
+        InviteToken.family_group_id == group_id,
+        InviteToken.status == "pending"
+    ).delete()
+    # remove group if empty or one member
+    db.query(FamilyGroup).filter(FamilyGroup.id == group_id).delete()
+    db.commit()
+
+    try:
+        await send_user_message(
+            partner.telegram_user_id,
+            "Партнёр разъединил семью. Теперь вы не связаны."
         )
     except Exception:
         pass

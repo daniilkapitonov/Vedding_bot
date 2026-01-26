@@ -11,7 +11,7 @@ import {
   familyStatus,
   checkFamilyUsername,
   cancelFamilyInviteByUsername,
-  leaveFamily,
+  removePartner,
   getIncomingFamilyInvite,
   acceptFamilyInvite,
   declineFamilyInvite,
@@ -20,7 +20,7 @@ import { Toast } from "../components/Toast";
 import { getTelegramUserId } from "../utils/telegram";
 import { ModalSheet } from "../components/ModalSheet";
 
-type Child = { id: string; name: string; age: string; note: string };
+type Child = { id: string; name: string; age: string; note: string; child_contact?: string | null };
 
 type State = {
   withPartner: boolean;
@@ -76,8 +76,10 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState("");
   const [toastVariant, setToastVariant] = useState<"ok" | "error">("ok");
-  const [members, setMembers] = useState<Array<{ name: string; rsvp: string }>>([]);
-  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [members, setMembers] = useState<Array<{ name: string; rsvp: string; telegram_user_id?: number; username?: string }>>([]);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [partnerToRemove, setPartnerToRemove] = useState<{ id?: number; name?: string } | null>(null);
+  const currentUserId = getTelegramUserId();
 
   const normalizeUsername = (value: string) => {
     let v = (value || "").trim();
@@ -160,7 +162,7 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
   }
 
   useEffect(() => {
-    const local = loadLocalFamily(getTelegramUserId());
+    const local = loadLocalFamily(currentUserId);
     if (local) {
       dispatch({
         type: "hydrate",
@@ -252,24 +254,50 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
                   ? `Вы вместе: ${members.map((m) => m.name).join(", ")}`
                   : "Пока в семье только вы"}
               </div>
-              <div className={styles.familyList}>
-                {members.map((m) => (
-                  <div key={m.name} className={styles.familyRow}>
-                    <span>{m.name}</span>
-                    <span className={styles.familyRsvp}>{rsvpLabel(m.rsvp)}</span>
-                  </div>
-                ))}
+              <div className={styles.familyTable}>
+                <div className={styles.familyHead}>
+                  <span>ФИО</span>
+                  <span>Ник</span>
+                  <span></span>
+                </div>
+                {members.map((m) => {
+                  const isSelf = Boolean(currentUserId && m.telegram_user_id === currentUserId);
+                  const partner = !isSelf && members.length > 1;
+                  return (
+                    <div key={`${m.name}-${m.telegram_user_id || "x"}`} className={styles.familyRow}>
+                      <span className={styles.familyName}>{m.name}</span>
+                      <span className={styles.familyNick}>{m.username ? `@${m.username}` : "—"}</span>
+                      <span>
+                        {partner ? (
+                          <button
+                            className={styles.removeBtn}
+                            onClick={() => {
+                              setPartnerToRemove({ id: m.telegram_user_id, name: m.name });
+                              setConfirmRemove(true);
+                            }}
+                          >
+                            Удалить
+                          </button>
+                        ) : null}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </>
           ) : (
             <div className={styles.familyNote}>Семья пока не создана.</div>
           )}
 
-          <label className={styles.toggle}>
-            <input type="checkbox" checked={state.withPartner} onChange={() => dispatch({ type: "toggle" })} />
-            <span>Буду с парой</span>
-          </label>
-          {state.withPartner ? (
+          {members.length >= 2 ? (
+            <div className={styles.familyNote}>Партнёр уже добавлен.</div>
+          ) : (
+            <label className={styles.toggle}>
+              <input type="checkbox" checked={state.withPartner} onChange={() => dispatch({ type: "toggle" })} />
+              <span>Буду с парой</span>
+            </label>
+          )}
+          {state.withPartner && members.length < 2 ? (
             <div className={styles.grid}>
               <div className={styles.partnerHeader}>
                 <div className={styles.partnerTitle}>Партнёр</div>
@@ -400,11 +428,6 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
               ) : null}
             </div>
           ) : null}
-          {members.length > 1 ? (
-            <button className={styles.leaveBtn} onClick={() => setConfirmLeave(true)}>
-              Разъединить семью
-            </button>
-          ) : null}
         </GlassCard>
 
         <GlassCard title="Дети">
@@ -426,6 +449,14 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
                   placeholder="Имя"
                   value={child.name}
                   onChange={(e) => dispatch({ type: "child", id: child.id, key: "name", value: e.target.value })}
+                />
+                <input
+                  className={styles.input}
+                  placeholder="Telegram ник или ссылка (необязательно)"
+                  value={child.child_contact || ""}
+                  onChange={(e) =>
+                    dispatch({ type: "child", id: child.id, key: "child_contact", value: e.target.value })
+                  }
                 />
                 <input
                   className={styles.input}
@@ -475,32 +506,32 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
         </button>
       </main>
       <Toast message={toast} variant={toastVariant} />
-      <ModalSheet open={confirmLeave} onClose={() => setConfirmLeave(false)} title="Разъединить семью?">
-        Это действие удалит связь между вами. Если в семье останется один человек — семья будет удалена.
+      <ModalSheet open={confirmRemove} onClose={() => setConfirmRemove(false)} title="Удалить партнёра?">
+        Это действие разъединит семью. Если останется один человек — семья будет удалена.
         <div className={styles.modalActions}>
           <button
             className={styles.inviteBtn}
             onClick={() => {
-              leaveFamily()
+              removePartner(partnerToRemove?.id)
                 .then(() => {
-                  setConfirmLeave(false);
+                  setConfirmRemove(false);
+                  setPartnerToRemove(null);
                   setInvite(null);
-                  setIncomingInvite(null);
                   refreshFamily();
                   setToastVariant("ok");
-                  setToast("Семья разъединена");
+                  setToast("Партнёр удалён");
                   setTimeout(() => setToast(""), 2000);
                 })
                 .catch(() => {
                   setToastVariant("error");
-                  setToast("Не удалось разъединить");
+                  setToast("Не удалось удалить");
                   setTimeout(() => setToast(""), 2200);
                 });
             }}
           >
             Подтвердить
           </button>
-          <button className={styles.checkBtn} onClick={() => setConfirmLeave(false)}>
+          <button className={styles.checkBtn} onClick={() => setConfirmRemove(false)}>
             Отмена
           </button>
         </div>

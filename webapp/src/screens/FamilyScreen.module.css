@@ -52,11 +52,34 @@
   margin-top: 6px;
 }
 
+.familyTable {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.familyHead {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 0.8fr;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
 .familyRow {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 0.8fr;
+  align-items: center;
   color: var(--text-secondary);
   font-size: 14px;
+}
+
+.familyName {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.familyNick {
+  color: var(--text-muted);
 }
 
 .familyRsvp {
