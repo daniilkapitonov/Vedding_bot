@@ -18,9 +18,13 @@ function initialRoute(): RouteKey {
   try {
     const params = new URLSearchParams(window.location.search);
     const screen = (params.get("screen") || "").toLowerCase();
+    const startParam = (params.get("tgWebAppStartParam") || params.get("startapp") || "").toLowerCase();
     if (screen === "family") return "family";
     if (screen === "event") return "event";
     if (screen === "profile") return "profile";
+    if (startParam === "family") return "family";
+    if (startParam === "event") return "event";
+    if (startParam === "profile") return "profile";
   } catch {}
   return "home";
 }

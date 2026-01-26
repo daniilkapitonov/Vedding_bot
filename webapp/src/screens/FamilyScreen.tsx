@@ -10,12 +10,15 @@ import {
   saveFamily,
   familyStatus,
   checkFamilyUsername,
+  cancelFamilyInviteByUsername,
+  leaveFamily,
   getIncomingFamilyInvite,
   acceptFamilyInvite,
   declineFamilyInvite,
 } from "../api";
 import { Toast } from "../components/Toast";
 import { getTelegramUserId } from "../utils/telegram";
+import { ModalSheet } from "../components/ModalSheet";
 
 type Child = { id: string; name: string; age: string; note: string };
 
@@ -74,6 +77,7 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
   const [toast, setToast] = useState("");
   const [toastVariant, setToastVariant] = useState<"ok" | "error">("ok");
   const [members, setMembers] = useState<Array<{ name: string; rsvp: string }>>([]);
+  const [confirmLeave, setConfirmLeave] = useState(false);
 
   const normalizeUsername = (value: string) => {
     let v = (value || "").trim();
@@ -366,7 +370,40 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
                   Отправить приглашение
                 </button>
               </div>
+              {invite?.status === "sent" ? (
+                <button
+                  className={styles.cancelInviteBtn}
+                  onClick={() => {
+                    const username = normalizeUsername(state.partnerUsername);
+                    if (!username) {
+                      setToastVariant("error");
+                      setToast("Введите ник Telegram");
+                      setTimeout(() => setToast(""), 2200);
+                      return;
+                    }
+                    cancelFamilyInviteByUsername(username)
+                      .then(() => {
+                        setInvite(null);
+                        setToastVariant("ok");
+                        setToast("Приглашение отменено");
+                        setTimeout(() => setToast(""), 2000);
+                      })
+                      .catch(() => {
+                        setToastVariant("error");
+                        setToast("Не удалось отменить");
+                        setTimeout(() => setToast(""), 2200);
+                      });
+                  }}
+                >
+                  Отменить приглашение
+                </button>
+              ) : null}
             </div>
+          ) : null}
+          {members.length > 1 ? (
+            <button className={styles.leaveBtn} onClick={() => setConfirmLeave(true)}>
+              Разъединить семью
+            </button>
           ) : null}
         </GlassCard>
 
@@ -438,6 +475,36 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
         </button>
       </main>
       <Toast message={toast} variant={toastVariant} />
+      <ModalSheet open={confirmLeave} onClose={() => setConfirmLeave(false)} title="Разъединить семью?">
+        Это действие удалит связь между вами. Если в семье останется один человек — семья будет удалена.
+        <div className={styles.modalActions}>
+          <button
+            className={styles.inviteBtn}
+            onClick={() => {
+              leaveFamily()
+                .then(() => {
+                  setConfirmLeave(false);
+                  setInvite(null);
+                  setIncomingInvite(null);
+                  refreshFamily();
+                  setToastVariant("ok");
+                  setToast("Семья разъединена");
+                  setTimeout(() => setToast(""), 2000);
+                })
+                .catch(() => {
+                  setToastVariant("error");
+                  setToast("Не удалось разъединить");
+                  setTimeout(() => setToast(""), 2200);
+                });
+            }}
+          >
+            Подтвердить
+          </button>
+          <button className={styles.checkBtn} onClick={() => setConfirmLeave(false)}>
+            Отмена
+          </button>
+        </div>
+      </ModalSheet>
       <BottomBar
         primaryLabel="Моя анкета"
         secondaryLabel="Информация о мероприятии"

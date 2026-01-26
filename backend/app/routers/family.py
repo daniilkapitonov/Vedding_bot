@@ -222,9 +222,9 @@ def _normalize_username(username: str) -> str:
     return value.lstrip("@")
 
 def _webapp_family_link() -> str:
-    base = settings.WEBAPP_URL.rstrip("/")
-    sep = "&" if "?" in base else "?"
-    return f"{base}{sep}screen=family"
+    if settings.BOT_USERNAME:
+        return f"https://t.me/{settings.BOT_USERNAME}?startapp=family"
+    return ""
 
 @router.post("/check-username")
 def check_username(
@@ -304,8 +304,8 @@ async def invite_by_username(
                 "<b>Приглашение в семью</b>\n"
                 f"Пригласил(а): {inviter_name}\n"
                 f"Дата рождения: {inviter_bd}\n\n"
-                f"Откройте мини‑приложение и перейдите в раздел «Семья».\n"
-                f"Ссылка: {link}"
+                "Откройте мини‑приложение и перейдите в раздел «Семья».\n"
+                + (f"Ссылка: {link}" if link else "Откройте через меню бота → Открыть приложение → Семья.")
             )
         )
     except Exception:
@@ -414,6 +414,104 @@ async def decline_invite(
         except Exception:
             pass
     return {"ok": True}
+
+@router.post("/invite/{token}/cancel")
+def cancel_invite(
+    token: str,
+    x_tg_initdata: str | None = Header(default=None),
+    x_invite_token: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    guest = _guest_from_initdata(x_tg_initdata, x_invite_token, db)
+    invite = db.query(InviteToken).filter(InviteToken.token == token).one_or_none()
+    if not invite:
+        raise HTTPException(404, "Invite not found")
+    if invite.status != "pending":
+        raise HTTPException(400, "Invite not pending")
+    if invite.inviter_guest_id != guest.id and invite.invitee_telegram_user_id != guest.telegram_user_id:
+        raise HTTPException(403, "Forbidden")
+    invite.status = "canceled"
+    invite.declined_at = datetime.utcnow()
+    db.add(invite)
+    db.commit()
+    return {"ok": True}
+
+@router.post("/invite-by-username/cancel")
+async def cancel_invite_by_username(
+    body: FamilyInviteByUsernameIn,
+    x_tg_initdata: str | None = Header(default=None),
+    x_invite_token: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    guest = _guest_from_initdata(x_tg_initdata, x_invite_token, db)
+    username = _normalize_username(body.username or "")
+    if not username:
+        raise HTTPException(400, "Missing username")
+    invite = (
+        db.query(InviteToken, Guest)
+        .join(Guest, Guest.telegram_user_id == InviteToken.invitee_telegram_user_id)
+        .filter(
+            InviteToken.inviter_guest_id == guest.id,
+            InviteToken.status == "pending",
+            Guest.username.ilike(username),
+        )
+        .order_by(InviteToken.created_at.desc())
+        .first()
+    )
+    if not invite:
+        raise HTTPException(404, "Invite not found")
+    token_row, invitee = invite
+    token_row.status = "canceled"
+    token_row.declined_at = datetime.utcnow()
+    db.add(token_row)
+    db.commit()
+    try:
+        await send_user_message(
+            invitee.telegram_user_id,
+            "Приглашение в семью отменено отправителем."
+        )
+    except Exception:
+        pass
+    return {"ok": True}
+
+@router.post("/leave")
+async def leave_family(
+    x_tg_initdata: str | None = Header(default=None),
+    x_invite_token: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    guest = _guest_from_initdata(x_tg_initdata, x_invite_token, db)
+    if not guest.family_group_id:
+        return {"ok": True, "family_group_id": None}
+    group_id = guest.family_group_id
+    # remove requester
+    guest.family_group_id = None
+    db.add(guest)
+    db.commit()
+    # cancel pending invites for this group
+    db.query(InviteToken).filter(
+        InviteToken.family_group_id == group_id,
+        InviteToken.status == "pending"
+    ).delete()
+    # check remaining members
+    remaining = db.query(Guest).filter(Guest.family_group_id == group_id).all()
+    if len(remaining) <= 1:
+        for g in remaining:
+            g.family_group_id = None
+            db.add(g)
+        db.query(FamilyGroup).filter(FamilyGroup.id == group_id).delete()
+    db.commit()
+    # notify remaining member if exists
+    if len(remaining) == 1:
+        other = remaining[0]
+        try:
+            await send_user_message(
+                other.telegram_user_id,
+                "Партнёр разъединил семью. Теперь вы не связаны."
+            )
+        except Exception:
+            pass
+    return {"ok": True, "family_group_id": None}
 
 # legacy alias
 @router.post("/invite-by-name")

@@ -15,7 +15,6 @@ BOT_USERNAME = None
 ADMIN_STATE = {}
 SYS_OFF_LABEL = "🔕 Отключить системные уведомления"
 SYS_ON_LABEL = "🔔 Включить системные уведомления"
-SYS_STATUS_PREFIX = "Системные уведомления:"
 
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
@@ -254,11 +253,6 @@ def admin_toggle_notifications(m: Message):
     else:
         bot.send_message(m.chat.id, "Не удалось изменить настройки уведомлений.")
 
-@bot.message_handler(func=lambda m: is_admin(m.from_user.id) and (m.text or "").startswith(SYS_STATUS_PREFIX))
-def admin_notifications_status(m: Message):
-    current = get_system_notifications_enabled(m.from_user.id)
-    status = "ВКЛ" if current else "ВЫКЛ"
-    bot.send_message(m.chat.id, f"Системные уведомления: {status}.", reply_markup=admin_kb(current))
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("clear_db:"))
 def clear_db_cb(c):
@@ -345,9 +339,6 @@ def admin_text_router(m: Message):
         return
     if m.text in (SYS_OFF_LABEL, SYS_ON_LABEL):
         admin_toggle_notifications(m)
-        return
-    if (m.text or "").startswith(SYS_STATUS_PREFIX):
-        admin_notifications_status(m)
         return
     state = ADMIN_STATE.get(m.chat.id, {})
     mode = state.get("mode")

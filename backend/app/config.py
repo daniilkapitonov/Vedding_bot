@@ -2,6 +2,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     BOT_TOKEN: str
+    BOT_USERNAME: str | None = None
     ADMIN_IDS: str = ""
     WEDDING_DATE: str = "2026-07-25T16:00:00+03:00"
     WEBAPP_URL: str = "https://example.com"

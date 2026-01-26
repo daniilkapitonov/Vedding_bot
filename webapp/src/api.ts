@@ -135,6 +135,14 @@ export async function checkFamilyUsername(username: string) {
   return req("/api/family/check-username", "POST", { username });
 }
 
+export async function cancelFamilyInviteByUsername(username: string) {
+  return req("/api/family/invite-by-username/cancel", "POST", { username });
+}
+
+export async function leaveFamily() {
+  return req("/api/family/leave", "POST");
+}
+
 export async function familyStatus() {
   return req("/api/family/status", "GET");
 }
