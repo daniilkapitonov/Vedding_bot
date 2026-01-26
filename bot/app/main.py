@@ -23,6 +23,12 @@ def is_admin(user_id: int) -> bool:
 def api_headers():
     return {"x-internal-secret": INTERNAL_SECRET}
 
+def _api_url(path: str) -> str:
+    base = API_BASE_URL.rstrip("/")
+    if path.startswith("/api/") and base.endswith("/api"):
+        base = base[:-4]
+    return f"{base}{path}"
+
 class _ApiResp:
     def __init__(self, ok: bool, data: dict | None = None, text: str = ""):
         self.ok = ok
@@ -33,19 +39,19 @@ class _ApiResp:
 
 def api_get(path: str, params: dict | None = None):
     try:
-        return requests.get(f"{API_BASE_URL}{path}", headers=api_headers(), params=params, timeout=8)
+        return requests.get(_api_url(path), headers=api_headers(), params=params, timeout=8)
     except RequestException as e:
         return _ApiResp(False, text=str(e))
 
 def api_post(path: str, payload: dict):
     try:
-        return requests.post(f"{API_BASE_URL}{path}", headers=api_headers(), json=payload, timeout=8)
+        return requests.post(_api_url(path), headers=api_headers(), json=payload, timeout=8)
     except RequestException as e:
         return _ApiResp(False, text=str(e))
 
 def api_delete(path: str):
     try:
-        return requests.delete(f"{API_BASE_URL}{path}", headers=api_headers(), timeout=8)
+        return requests.delete(_api_url(path), headers=api_headers(), timeout=8)
     except RequestException as e:
         return _ApiResp(False, text=str(e))
 
@@ -77,7 +83,11 @@ def render_guests(chat_id: int, page: int = 1, rsvp: str | None = None, q: str |
         params["q"] = q
     res = api_get("/api/admin/guests", params=params)
     if not res.ok:
-        bot.send_message(chat_id, "Не удалось загрузить гостей.")
+        detail = (res.text or "").strip()
+        msg = "Не удалось загрузить гостей."
+        if detail:
+            msg = f"{msg}\n{detail[:120]}"
+        bot.send_message(chat_id, msg)
         return
     data = res.json()
     items = data.get("items", [])
@@ -188,7 +198,11 @@ def admin_guests(m: Message):
 def admin_event_info(m: Message):
     res = api_get("/api/admin/event")
     if not res.ok:
-        bot.send_message(m.chat.id, "Не удалось получить информацию.")
+        detail = (res.text or "").strip()
+        msg = "Не удалось получить информацию."
+        if detail:
+            msg = f"{msg}\n{detail[:120]}"
+        bot.send_message(m.chat.id, msg)
         return
     data = res.json()
     bot.send_message(m.chat.id, f"<b>Текущее инфо:</b>\n{data.get('content','')}")
@@ -204,7 +218,11 @@ def admin_delete_guest(m: Message):
 def admin_db_health(m: Message):
     res = api_get("/api/admin/db-health")
     if not res.ok:
-        bot.send_message(m.chat.id, "Не удалось получить DB Health.")
+        detail = (res.text or "").strip()
+        msg = "Не удалось получить DB Health."
+        if detail:
+            msg = f"{msg}\n{detail[:120]}"
+        bot.send_message(m.chat.id, msg)
         return
     data = res.json()
     tables = ", ".join(data.get("tables", [])) or "—"
@@ -276,7 +294,11 @@ def clear_db_cb(c):
                 f"change_log: {data.get('change_log')}"
             )
         else:
-            bot.send_message(c.message.chat.id, "Не удалось очистить базу.")
+            detail = (res.text or "").strip()
+            msg = "Не удалось очистить базу."
+            if detail:
+                msg = f"{msg}\n{detail[:120]}"
+            bot.send_message(c.message.chat.id, msg)
         return
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("guests:"))
