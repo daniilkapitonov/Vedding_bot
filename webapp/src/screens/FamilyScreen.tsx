@@ -507,7 +507,7 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
       </main>
       <Toast message={toast} variant={toastVariant} />
       <ModalSheet open={confirmRemove} onClose={() => setConfirmRemove(false)} title="Удалить партнёра?">
-        Это действие разъединит семью. Если останется один человек — семья будет удалена.
+        Вы сможете добавить другого пользователя сразу после удаления.
         <div className={styles.modalActions}>
           <button
             className={styles.inviteBtn}

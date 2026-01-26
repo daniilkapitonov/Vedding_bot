@@ -563,7 +563,7 @@ async def remove_partner(
     else:
         partner = next((m for m in members if m.telegram_user_id != guest.telegram_user_id), None)
     if not partner:
-        raise HTTPException(404, "Partner not found")
+        return {"ok": True}
     if partner.telegram_user_id == guest.telegram_user_id:
         raise HTTPException(400, "Self remove not allowed")
 
