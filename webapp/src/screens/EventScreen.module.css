@@ -17,7 +17,9 @@
 
 .mapContainer {
   margin: 12px 0;
-  height: 240px;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  min-height: 200px;
   border-radius: var(--r-card);
   overflow: hidden;
   border: 1px solid rgba(255,255,255,0.3);
