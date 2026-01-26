@@ -63,6 +63,14 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
   const [toast, setToast] = useState("");
   const [toastVariant, setToastVariant] = useState<"ok" | "error">("ok");
   const [members, setMembers] = useState<Array<{ name: string; rsvp: string }>>([]);
+  const normalizeUsername = (value: string) => {
+    let v = (value || "").trim();
+    if (!v) return "";
+    v = v.replace(/^https?:\/\/t\.me\//i, "");
+    v = v.replace(/^t\.me\//i, "");
+    v = v.replace(/^@/g, "");
+    return v.toLowerCase();
+  };
 
   function familyStorageKey(userId: number | null) {
     return userId ? `wedding.family.${userId}` : "wedding.family.guest";
@@ -174,7 +182,7 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
                   className={styles.checkBtn}
                   disabled={!state.partnerUsername}
                   onClick={() => {
-                    const username = state.partnerUsername.trim();
+                    const username = normalizeUsername(state.partnerUsername);
                     if (!username) {
                       setToastVariant("error");
                       setToast("Введите ник Telegram");
@@ -213,7 +221,7 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
                   className={styles.inviteBtn}
                   disabled={!state.partnerUsername}
                   onClick={() => {
-                    const username = state.partnerUsername.trim();
+                    const username = normalizeUsername(state.partnerUsername);
                     if (!username) {
                       setToastVariant("error");
                       setToast("Введите ник Telegram");

@@ -12,8 +12,8 @@ bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
 app = Flask(__name__)
 BOT_USERNAME = None
 ADMIN_STATE = {}
-SYS_OFF_LABEL = "🔕 Системные уведомления: ВЫКЛ"
-SYS_ON_LABEL = "🔔 Системные уведомления: ВКЛ"
+SYS_OFF_LABEL = "🔕 Отключить системные уведомления"
+SYS_ON_LABEL = "🔔 Включить системные уведомления"
 
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
@@ -210,8 +210,8 @@ def admin_toggle_notifications(m: Message):
     current = get_system_notifications_enabled(m.from_user.id)
     target = not current
     if set_system_notifications_enabled(m.from_user.id, target):
-        status = "ВКЛ" if target else "ВЫКЛ"
-        bot.send_message(m.chat.id, f"Системные уведомления: {status}", reply_markup=admin_kb(target))
+        status = "включены" if target else "отключены"
+        bot.send_message(m.chat.id, f"Системные уведомления {status}.", reply_markup=admin_kb(target))
     else:
         bot.send_message(m.chat.id, "Не удалось изменить настройки уведомлений.")
 

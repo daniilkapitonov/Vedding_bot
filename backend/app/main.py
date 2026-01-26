@@ -34,6 +34,15 @@ app.add_api_route("/profile", profile.upsert_profile, methods=["POST"])
 app.add_api_route("/extra", profile.save_extra, methods=["POST"])
 app.add_api_route("/partner/link", profile.link_partner, methods=["POST"])
 app.add_api_route("/questions", questions.send_question, methods=["POST"])
+app.add_api_route("/family/status", family.family_status, methods=["GET"])
+app.add_api_route("/family/me", family.get_family, methods=["GET"])
+app.add_api_route("/family/save", family.save_family, methods=["POST"])
+app.add_api_route("/family/check-username", family.check_username, methods=["POST"])
+app.add_api_route("/family/invite-by-username", family.invite_by_username, methods=["POST"])
+app.add_api_route("/family/invite-by-name", family.invite_by_name_legacy, methods=["POST"])
+app.add_api_route("/family/invite", family.invite_family, methods=["POST"])
+app.add_api_route("/family/accept", family.accept_invite, methods=["POST"])
+app.add_api_route("/family/invite/{token}", family.invite_info, methods=["GET"])
 
 def _ensure_family_group_column():
     if not engine.url.get_backend_name().startswith("sqlite"):

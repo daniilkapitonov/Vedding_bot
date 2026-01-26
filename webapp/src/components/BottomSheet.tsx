@@ -10,10 +10,16 @@ export function BottomSheet(props: {
 }) {
   if (!props.open) return null;
   const anchor = props.anchorRect;
+  const margin = 12;
+  const menuWidth = 220;
+  const viewportW = typeof window !== "undefined" ? window.innerWidth : 360;
+  const clamp = (val: number, min: number, max: number) => Math.max(min, Math.min(max, val));
   const style = anchor
     ? {
         top: Math.round(anchor.bottom + 8),
-        left: Math.round(Math.max(12, anchor.left - 140)),
+        left: Math.round(
+          clamp(anchor.right - menuWidth, margin, viewportW - margin - menuWidth)
+        ),
       }
     : undefined;
   return ReactDOM.createPortal(
