@@ -3,7 +3,17 @@ import styles from "./FamilyScreen.module.css";
 import { FrostedHeader } from "../components/FrostedHeader";
 import { GlassCard } from "../components/GlassCard";
 import { BottomBar } from "../components/bottombar";
-import { FamilyPayload, inviteFamily, loadFamily, saveFamily, familyStatus, checkFamilyUsername } from "../api";
+import {
+  FamilyPayload,
+  inviteFamily,
+  loadFamily,
+  saveFamily,
+  familyStatus,
+  checkFamilyUsername,
+  getIncomingFamilyInvite,
+  acceptFamilyInvite,
+  declineFamilyInvite,
+} from "../api";
 import { Toast } from "../components/Toast";
 import { getTelegramUserId } from "../utils/telegram";
 
@@ -59,10 +69,12 @@ function reducer(state: State, action: Action): State {
 export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect) => void; onEvent: () => void }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [invite, setInvite] = useState<any>(null);
+  const [incomingInvite, setIncomingInvite] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState("");
   const [toastVariant, setToastVariant] = useState<"ok" | "error">("ok");
   const [members, setMembers] = useState<Array<{ name: string; rsvp: string }>>([]);
+
   const normalizeUsername = (value: string) => {
     let v = (value || "").trim();
     if (!v) return "";
@@ -70,6 +82,19 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
     v = v.replace(/^t\.me\//i, "");
     v = v.replace(/^@/g, "");
     return v.toLowerCase();
+  };
+
+  const formatDate = (iso?: string | null) => {
+    if (!iso) return "не указана";
+    try {
+      const d = new Date(iso);
+      const dd = String(d.getDate()).padStart(2, "0");
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const yy = d.getFullYear();
+      return `${dd}.${mm}.${yy}`;
+    } catch {
+      return "не указана";
+    }
   };
 
   function familyStorageKey(userId: number | null) {
@@ -104,30 +129,52 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
     }
   }
 
-  useEffect(() => {
-    const local = loadLocalFamily(getTelegramUserId());
-    if (local) {
-      dispatch({ type: "hydrate", value: {
-        withPartner: Boolean(local.withPartner),
-        partnerUsername: (local as any).partnerUsername || local.partnerName || "",
-        children: local.children || []
-      }});
-    }
-    const localInvite = loadLocalInvite();
-    if (localInvite) setInvite(localInvite);
+  function refreshFamily() {
     loadFamily().then((res: any) => {
       if (res) {
-        dispatch({ type: "hydrate", value: {
-          withPartner: Boolean(res.withPartner),
-          partnerUsername: res.partnerName || "",
-          children: res.children || []
-        }});
+        dispatch({
+          type: "hydrate",
+          value: {
+            withPartner: Boolean(res.withPartner),
+            partnerUsername: res.partnerName || "",
+            children: res.children || [],
+          },
+        });
       }
     }).catch(() => {});
 
     familyStatus().then((res: any) => {
-      if (res?.members?.length) setMembers(res.members);
+      if (res?.members?.length) {
+        setMembers(res.members);
+        if (res.members.length > 1) {
+          dispatch({ type: "hydrate", value: { withPartner: true } });
+        }
+      } else {
+        setMembers([]);
+      }
     }).catch(() => {});
+  }
+
+  useEffect(() => {
+    const local = loadLocalFamily(getTelegramUserId());
+    if (local) {
+      dispatch({
+        type: "hydrate",
+        value: {
+          withPartner: Boolean(local.withPartner),
+          partnerUsername: (local as any).partnerUsername || local.partnerName || "",
+          children: local.children || [],
+        },
+      });
+    }
+    const localInvite = loadLocalInvite();
+    if (localInvite) setInvite(localInvite);
+
+    refreshFamily();
+
+    getIncomingFamilyInvite()
+      .then((res: any) => setIncomingInvite(res))
+      .catch(() => {});
   }, []);
 
   const rsvpLabel = (value: string) => {
@@ -141,35 +188,93 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
     <div className={styles.page}>
       <FrostedHeader title="Семья" leftIcon="←" rightIcon="…" onLeft={props.onBack} onRight={props.onMenu} />
       <main className={styles.content}>
-        <GlassCard title="Кого вы приведёте?">
+        <GlassCard title="Приглашение в семью">
+          {incomingInvite ? (
+            <div className={styles.inviteBlock}>
+              <div className={styles.inviteInfo}>Пригласил(а): <b>{incomingInvite.inviter_name || "Гость"}</b></div>
+              <div className={styles.inviteInfo}>Дата рождения: {formatDate(incomingInvite.inviter_birth_date)}</div>
+              <div className={styles.inviteActions}>
+                <button
+                  className={styles.inviteBtn}
+                  onClick={() => {
+                    acceptFamilyInvite(incomingInvite.token)
+                      .then(() => {
+                        setIncomingInvite(null);
+                        refreshFamily();
+                        setToastVariant("ok");
+                        setToast("Приглашение принято");
+                        setTimeout(() => setToast(""), 2000);
+                      })
+                      .catch(() => {
+                        setToastVariant("error");
+                        setToast("Не удалось принять");
+                        setTimeout(() => setToast(""), 2200);
+                      });
+                  }}
+                >
+                  Принять
+                </button>
+                <button
+                  className={styles.checkBtn}
+                  onClick={() => {
+                    declineFamilyInvite(incomingInvite.token)
+                      .then(() => {
+                        setIncomingInvite(null);
+                        setToastVariant("ok");
+                        setToast("Приглашение отклонено");
+                        setTimeout(() => setToast(""), 2000);
+                      })
+                      .catch(() => {
+                        setToastVariant("error");
+                        setToast("Не удалось отклонить");
+                        setTimeout(() => setToast(""), 2200);
+                      });
+                  }}
+                >
+                  Отклонить
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className={styles.familyNote}>Нет активных приглашений.</div>
+          )}
+        </GlassCard>
+
+        <GlassCard title="Текущая семья">
+          {members.length > 0 ? (
+            <>
+              <div className={styles.familyNote}>
+                {members.length > 1
+                  ? `Вы вместе: ${members.map((m) => m.name).join(", ")}`
+                  : "Пока в семье только вы"}
+              </div>
+              <div className={styles.familyList}>
+                {members.map((m) => (
+                  <div key={m.name} className={styles.familyRow}>
+                    <span>{m.name}</span>
+                    <span className={styles.familyRsvp}>{rsvpLabel(m.rsvp)}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className={styles.familyNote}>Семья пока не создана.</div>
+          )}
+
           <label className={styles.toggle}>
             <input type="checkbox" checked={state.withPartner} onChange={() => dispatch({ type: "toggle" })} />
             <span>Буду с парой</span>
           </label>
           {state.withPartner ? (
             <div className={styles.grid}>
-              {members.length > 1 ? (
-                <>
-                  <div className={styles.familyNote}>
-                    Вы вместе: {members.map((m) => m.name).join(", ")}
-                  </div>
-                  <div className={styles.familyList}>
-                    {members.map((m) => (
-                      <div key={m.name} className={styles.familyRow}>
-                        <span>{m.name}</span>
-                        <span className={styles.familyRsvp}>{rsvpLabel(m.rsvp)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              ) : null}
               <div className={styles.partnerHeader}>
                 <div className={styles.partnerTitle}>Партнёр</div>
-                {invite?.confirmed ? (
-                  <span className={`${styles.badge} ${styles.badgeOk}`}>Подтверждено</span>
-                ) : invite?.status === "sent" ? (
+                {invite?.status === "sent" ? (
                   <span className={`${styles.badge} ${styles.badgePending}`}>Ожидаем подтверждение</span>
                 ) : null}
+              </div>
+              <div className={styles.familyNote}>
+                Пригласить можно только гостя, который уже зарегистрирован в Telegram‑списке.
               </div>
               <input
                 className={styles.input}
@@ -236,7 +341,8 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
                           setTimeout(() => setToast(""), 2200);
                           return;
                         }
-                        setInvite({ status: "sent", confirmed: false });
+                        setInvite({ status: "sent" });
+                        saveLocalInvite({ status: "sent" });
                         setToastVariant("ok");
                         setToast("Приглашение отправлено");
                         setTimeout(() => setToast(""), 2000);

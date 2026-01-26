@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import text, func
 import os
 
 from ..db import get_db, engine
@@ -45,6 +45,15 @@ def list_guests(
             (Guest.phone.ilike(like))
         )
     total = query.count()
+    family_counts = {}
+    rows_counts = (
+        db.query(Guest.family_group_id, func.count(Guest.id))
+        .filter(Guest.family_group_id.isnot(None))
+        .group_by(Guest.family_group_id)
+        .all()
+    )
+    for fg_id, cnt in rows_counts:
+        family_counts[int(fg_id)] = int(cnt)
     rows = query.offset((page - 1) * page_size).limit(page_size).all()
     out = []
     for g, p, fp in rows:
@@ -70,6 +79,7 @@ def list_guests(
             "alcohol": alcohol,
             "phone": g.phone,
             "family_group_id": g.family_group_id,
+            "family_members_count": family_counts.get(g.family_group_id or 0, 0) if g.family_group_id else 0,
             "children_count": children_count,
             "updated_at": g.updated_at.isoformat() if g.updated_at else None,
         })

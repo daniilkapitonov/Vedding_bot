@@ -57,6 +57,14 @@ def _ensure_family_group_column():
         col_names = {row[1] for row in cols}
         if col_names and "expires_at" not in col_names:
             conn.execute(text("ALTER TABLE invite_tokens ADD COLUMN expires_at DATETIME"))
+        if col_names and "invitee_telegram_user_id" not in col_names:
+            conn.execute(text("ALTER TABLE invite_tokens ADD COLUMN invitee_telegram_user_id INTEGER"))
+        if col_names and "status" not in col_names:
+            conn.execute(text("ALTER TABLE invite_tokens ADD COLUMN status VARCHAR(16)"))
+        if col_names and "accepted_at" not in col_names:
+            conn.execute(text("ALTER TABLE invite_tokens ADD COLUMN accepted_at DATETIME"))
+        if col_names and "declined_at" not in col_names:
+            conn.execute(text("ALTER TABLE invite_tokens ADD COLUMN declined_at DATETIME"))
 
 _ensure_family_group_column()
 

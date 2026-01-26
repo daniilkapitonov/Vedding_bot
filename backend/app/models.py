@@ -81,6 +81,10 @@ class InviteToken(Base):
     family_group_id: Mapped[int] = mapped_column(ForeignKey("family_groups.id"), index=True)
     inviter_guest_id: Mapped[int] = mapped_column(ForeignKey("guests.id"), index=True)
     used_by_guest_id: Mapped[int | None] = mapped_column(ForeignKey("guests.id"), nullable=True)
+    invitee_telegram_user_id: Mapped[int | None] = mapped_column(Integer, index=True, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), default="pending")
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    declined_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

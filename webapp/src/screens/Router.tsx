@@ -14,7 +14,18 @@ type NavState = {
 
 type NavAction = { type: "go"; route: RouteKey };
 
-const initialState: NavState = { route: "home" };
+function initialRoute(): RouteKey {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const screen = (params.get("screen") || "").toLowerCase();
+    if (screen === "family") return "family";
+    if (screen === "event") return "event";
+    if (screen === "profile") return "profile";
+  } catch {}
+  return "home";
+}
+
+const initialState: NavState = { route: initialRoute() };
 
 function reducer(state: NavState, action: NavAction): NavState {
   if (action.type === "go") return { route: action.route };

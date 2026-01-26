@@ -139,6 +139,18 @@ export async function familyStatus() {
   return req("/api/family/status", "GET");
 }
 
+export async function getIncomingFamilyInvite() {
+  return req("/api/family/invites/incoming", "GET");
+}
+
+export async function acceptFamilyInvite(token: string) {
+  return req(`/api/family/invite/${token}/accept`, "POST");
+}
+
+export async function declineFamilyInvite(token: string) {
+  return req(`/api/family/invite/${token}/decline`, "POST");
+}
+
 export async function sendQuestion(text: string) {
   return req("/api/questions", "POST", { text });
 }

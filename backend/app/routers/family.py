@@ -9,8 +9,8 @@ from ..db import get_db
 from ..models import Guest, Profile, FamilyGroup, InviteToken, FamilyProfile
 from ..config import settings
 from ..services.telegram_auth import verify_telegram_init_data, get_guest_from_invite
-from ..schemas import FamilyAcceptIn, FamilyInviteOut, FamilyStatusOut, FamilySaveIn, FamilyOut, FamilyInviteByUsernameIn, FamilyCheckUsernameIn
-from ..services.notifier import send_admin_message
+from ..schemas import FamilyAcceptIn, FamilyInviteOut, FamilyStatusOut, FamilySaveIn, FamilyOut, FamilyInviteByUsernameIn, FamilyCheckUsernameIn, FamilyIncomingInviteOut
+from ..services.notifier import send_admin_message, send_user_message
 
 router = APIRouter(prefix="/api/family", tags=["family"])
 
@@ -212,7 +212,19 @@ async def save_family(
     return FamilyOut(with_partner=row.with_partner, partner_name=row.partner_name, children=body.children or [])
 
 def _normalize_username(username: str) -> str:
-    return username.strip().lstrip("@").lower()
+    value = (username or "").strip().lower()
+    if value.startswith("https://t.me/"):
+        value = value.replace("https://t.me/", "", 1)
+    if value.startswith("http://t.me/"):
+        value = value.replace("http://t.me/", "", 1)
+    if value.startswith("t.me/"):
+        value = value.replace("t.me/", "", 1)
+    return value.lstrip("@")
+
+def _webapp_family_link() -> str:
+    base = settings.WEBAPP_URL.rstrip("/")
+    sep = "&" if "?" in base else "?"
+    return f"{base}{sep}screen=family"
 
 @router.post("/check-username")
 def check_username(
@@ -268,12 +280,131 @@ def invite_by_username(
         db.add(guest)
         db.commit()
 
-    if other_guest.family_group_id != guest.family_group_id:
-        other_guest.family_group_id = guest.family_group_id
-        db.add(other_guest)
-        db.commit()
+    token = secrets.token_urlsafe(16)
+    invite = InviteToken(
+        token=token,
+        family_group_id=guest.family_group_id,
+        inviter_guest_id=guest.id,
+        invitee_telegram_user_id=other_guest.telegram_user_id,
+        status="pending",
+        expires_at=datetime.utcnow() + timedelta(days=7),
+    )
+    db.add(invite)
+    db.commit()
 
+    inviter_name = guest.profile.full_name if guest.profile else ""
+    if not inviter_name:
+        inviter_name = f"{guest.first_name or ''} {guest.last_name or ''}".strip() or "Гость"
+    inviter_bd = guest.profile.birth_date.isoformat() if guest.profile and guest.profile.birth_date else "не указана"
+    link = _webapp_family_link()
+    await send_user_message(
+        other_guest.telegram_user_id,
+        (
+            "<b>Приглашение в семью</b>\n"
+            f"Пригласил(а): {inviter_name}\n"
+            f"Дата рождения: {inviter_bd}\n\n"
+            f"Откройте мини‑приложение и перейдите в раздел «Семья».\n"
+            f"Ссылка: {link}"
+        )
+    )
+    return {"ok": True, "token": token}
+
+@router.get("/invites/incoming", response_model=FamilyIncomingInviteOut | None)
+def incoming_invite(
+    x_tg_initdata: str | None = Header(default=None),
+    x_invite_token: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    guest = _guest_from_initdata(x_tg_initdata, x_invite_token, db)
+    invite = db.query(InviteToken).filter(
+        InviteToken.invitee_telegram_user_id == guest.telegram_user_id,
+        InviteToken.status == "pending"
+    ).order_by(InviteToken.created_at.desc()).first()
+    if not invite:
+        return None
+    inviter = db.query(Guest).filter(Guest.id == invite.inviter_guest_id).one_or_none()
+    inviter_name = "Гость"
+    inviter_bd = None
+    if inviter:
+        profile = db.query(Profile).filter(Profile.guest_id == inviter.id).one_or_none()
+        if profile and profile.full_name:
+            inviter_name = profile.full_name
+        if profile and profile.birth_date:
+            inviter_bd = profile.birth_date
+    return FamilyIncomingInviteOut(token=invite.token, inviter_name=inviter_name, inviter_birth_date=inviter_bd)
+
+@router.post("/invite/{token}/accept")
+def accept_invite(
+    token: str,
+    x_tg_initdata: str | None = Header(default=None),
+    x_invite_token: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    guest = _guest_from_initdata(x_tg_initdata, x_invite_token, db)
+    invite = db.query(InviteToken).filter(InviteToken.token == token).one_or_none()
+    if not invite:
+        raise HTTPException(404, "Invite not found")
+    if invite.status != "pending":
+        raise HTTPException(400, "Invite not pending")
+    if invite.invitee_telegram_user_id and invite.invitee_telegram_user_id != guest.telegram_user_id:
+        raise HTTPException(403, "Not your invite")
+    if invite.expires_at and invite.expires_at < datetime.utcnow():
+        invite.status = "declined"
+        invite.declined_at = datetime.utcnow()
+        db.add(invite)
+        db.commit()
+        raise HTTPException(400, "Invite expired")
+    if guest.family_group_id and guest.family_group_id != invite.family_group_id:
+        raise HTTPException(409, "Already in another family")
+    guest.family_group_id = invite.family_group_id
+    invite.status = "accepted"
+    invite.accepted_at = datetime.utcnow()
+    invite.used_by_guest_id = guest.id
+    db.add(guest)
+    db.add(invite)
+    db.commit()
+
+    inviter = db.query(Guest).filter(Guest.id == invite.inviter_guest_id).one_or_none()
+    invitee_name = guest.profile.full_name if guest.profile else ""
+    if not invitee_name:
+        invitee_name = f"{guest.first_name or ''} {guest.last_name or ''}".strip() or "Гость"
+    if inviter:
+        await send_user_message(
+            inviter.telegram_user_id,
+            f"✅ Приглашение принято: {invitee_name}"
+        )
     return {"ok": True, "family_group_id": guest.family_group_id}
+
+@router.post("/invite/{token}/decline")
+def decline_invite(
+    token: str,
+    x_tg_initdata: str | None = Header(default=None),
+    x_invite_token: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    guest = _guest_from_initdata(x_tg_initdata, x_invite_token, db)
+    invite = db.query(InviteToken).filter(InviteToken.token == token).one_or_none()
+    if not invite:
+        raise HTTPException(404, "Invite not found")
+    if invite.status != "pending":
+        raise HTTPException(400, "Invite not pending")
+    if invite.invitee_telegram_user_id and invite.invitee_telegram_user_id != guest.telegram_user_id:
+        raise HTTPException(403, "Not your invite")
+    invite.status = "declined"
+    invite.declined_at = datetime.utcnow()
+    db.add(invite)
+    db.commit()
+
+    inviter = db.query(Guest).filter(Guest.id == invite.inviter_guest_id).one_or_none()
+    invitee_name = guest.profile.full_name if guest.profile else ""
+    if not invitee_name:
+        invitee_name = f"{guest.first_name or ''} {guest.last_name or ''}".strip() or "Гость"
+    if inviter:
+        await send_user_message(
+            inviter.telegram_user_id,
+            f"❌ Приглашение отклонено: {invitee_name}"
+        )
+    return {"ok": True}
 
 # legacy alias
 @router.post("/invite-by-name")

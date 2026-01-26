@@ -66,3 +66,21 @@ async def send_admin_message(text: str, category: str = "system", db: Session | 
     if close_db:
         db.close()
     return sent_any
+
+async def send_user_message(telegram_user_id: int, text: str) -> bool:
+    if not settings.BOT_TOKEN:
+        logger.warning("send_user_message: missing BOT_TOKEN")
+        return False
+    url = f"https://api.telegram.org/bot{settings.BOT_TOKEN}/sendMessage"
+    async with httpx.AsyncClient(timeout=8) as client:
+        try:
+            resp = await client.post(url, json={
+                "chat_id": telegram_user_id,
+                "text": text,
+                "parse_mode": "HTML",
+                "disable_web_page_preview": True,
+            })
+            return 200 <= resp.status_code < 300
+        except Exception as e:
+            logger.warning("send_user_message failed: %s", str(e))
+            return False

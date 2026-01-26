@@ -24,6 +24,23 @@
   gap: 10px;
 }
 
+.inviteBlock {
+  display: grid;
+  gap: 8px;
+}
+
+.inviteInfo {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.inviteActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 6px;
+}
+
 .familyNote {
   font-size: 14px;
   color: var(--text-secondary);

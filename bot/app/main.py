@@ -14,6 +14,7 @@ BOT_USERNAME = None
 ADMIN_STATE = {}
 SYS_OFF_LABEL = "🔕 Отключить системные уведомления"
 SYS_ON_LABEL = "🔔 Включить системные уведомления"
+SYS_STATUS_PREFIX = "Системные уведомления:"
 
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
@@ -78,7 +79,7 @@ def render_guests(chat_id: int, page: int = 1, rsvp: str | None = None, q: str |
             pad("ID", 4) + pad("Имя", 18) + pad("@", 12) + pad("RSVP", 6) +
             pad("Тел", 13) + pad("Пол", 6) + pad("Еда", 10) + pad("Алко", 12) +
             pad("Стор", 6) + pad("Род", 4) + pad("Аллерг", 12) + pad("Сем", 4) +
-            pad("Обн", 10)
+            pad("Дет", 4) + pad("Обн", 10)
         )
         lines.append(header)
         lines.append("-" * len(header))
@@ -93,7 +94,8 @@ def render_guests(chat_id: int, page: int = 1, rsvp: str | None = None, q: str |
             side = it.get("side") or "—"
             relative = "Да" if it.get("relative") else "—"
             allergies = it.get("allergies") or "—"
-            fam = "Да" if it.get("family_group_id") else "—"
+            fam = str(it.get("family_members_count") or 0) if it.get("family_group_id") else "0"
+            kids = str(it.get("children_count") or 0)
             updated = (it.get("updated_at") or "")[:10] or "—"
             row = (
                 pad(str(it.get("guest_id") or ""), 4) +
@@ -108,6 +110,7 @@ def render_guests(chat_id: int, page: int = 1, rsvp: str | None = None, q: str |
                 pad(relative, 4) +
                 pad(allergies, 12) +
                 pad(fam, 4) +
+                pad(kids, 4) +
                 pad(updated, 10)
             )
             lines.append(row)
@@ -214,6 +217,12 @@ def admin_toggle_notifications(m: Message):
         bot.send_message(m.chat.id, f"Системные уведомления {status}.", reply_markup=admin_kb(target))
     else:
         bot.send_message(m.chat.id, "Не удалось изменить настройки уведомлений.")
+
+@bot.message_handler(func=lambda m: is_admin(m.from_user.id) and (m.text or "").startswith(SYS_STATUS_PREFIX))
+def admin_notifications_status(m: Message):
+    current = get_system_notifications_enabled(m.from_user.id)
+    status = "ВКЛ" if current else "ВЫКЛ"
+    bot.send_message(m.chat.id, f"Системные уведомления: {status}.", reply_markup=admin_kb(current))
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("clear_db:"))
 def clear_db_cb(c):

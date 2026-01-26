@@ -94,3 +94,8 @@ class FamilyInviteByUsernameIn(BaseModel):
 
 class FamilyCheckUsernameIn(BaseModel):
     username: str
+
+class FamilyIncomingInviteOut(BaseModel):
+    token: str
+    inviter_name: str
+    inviter_birth_date: Optional[date] = None
