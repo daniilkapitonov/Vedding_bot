@@ -249,7 +249,7 @@ def check_username(
     return {"found": True, "guest_id": g.id, "name": name, "username": g.username}
 
 @router.post("/invite-by-username")
-def invite_by_username(
+async def invite_by_username(
     body: FamilyInviteByUsernameIn,
     x_tg_initdata: str | None = Header(default=None),
     x_invite_token: str | None = Header(default=None),
@@ -297,16 +297,19 @@ def invite_by_username(
         inviter_name = f"{guest.first_name or ''} {guest.last_name or ''}".strip() or "Гость"
     inviter_bd = guest.profile.birth_date.isoformat() if guest.profile and guest.profile.birth_date else "не указана"
     link = _webapp_family_link()
-    await send_user_message(
-        other_guest.telegram_user_id,
-        (
-            "<b>Приглашение в семью</b>\n"
-            f"Пригласил(а): {inviter_name}\n"
-            f"Дата рождения: {inviter_bd}\n\n"
-            f"Откройте мини‑приложение и перейдите в раздел «Семья».\n"
-            f"Ссылка: {link}"
+    try:
+        await send_user_message(
+            other_guest.telegram_user_id,
+            (
+                "<b>Приглашение в семью</b>\n"
+                f"Пригласил(а): {inviter_name}\n"
+                f"Дата рождения: {inviter_bd}\n\n"
+                f"Откройте мини‑приложение и перейдите в раздел «Семья».\n"
+                f"Ссылка: {link}"
+            )
         )
-    )
+    except Exception:
+        pass
     return {"ok": True, "token": token}
 
 @router.get("/invites/incoming", response_model=FamilyIncomingInviteOut | None)
@@ -334,7 +337,7 @@ def incoming_invite(
     return FamilyIncomingInviteOut(token=invite.token, inviter_name=inviter_name, inviter_birth_date=inviter_bd)
 
 @router.post("/invite/{token}/accept")
-def accept_invite(
+async def accept_invite(
     token: str,
     x_tg_initdata: str | None = Header(default=None),
     x_invite_token: str | None = Header(default=None),
@@ -369,14 +372,17 @@ def accept_invite(
     if not invitee_name:
         invitee_name = f"{guest.first_name or ''} {guest.last_name or ''}".strip() or "Гость"
     if inviter:
-        await send_user_message(
-            inviter.telegram_user_id,
-            f"✅ Приглашение принято: {invitee_name}"
-        )
+        try:
+            await send_user_message(
+                inviter.telegram_user_id,
+                f"✅ Приглашение принято: {invitee_name}"
+            )
+        except Exception:
+            pass
     return {"ok": True, "family_group_id": guest.family_group_id}
 
 @router.post("/invite/{token}/decline")
-def decline_invite(
+async def decline_invite(
     token: str,
     x_tg_initdata: str | None = Header(default=None),
     x_invite_token: str | None = Header(default=None),
@@ -400,10 +406,13 @@ def decline_invite(
     if not invitee_name:
         invitee_name = f"{guest.first_name or ''} {guest.last_name or ''}".strip() or "Гость"
     if inviter:
-        await send_user_message(
-            inviter.telegram_user_id,
-            f"❌ Приглашение отклонено: {invitee_name}"
-        )
+        try:
+            await send_user_message(
+                inviter.telegram_user_id,
+                f"❌ Приглашение отклонено: {invitee_name}"
+            )
+        except Exception:
+            pass
     return {"ok": True}
 
 # legacy alias
