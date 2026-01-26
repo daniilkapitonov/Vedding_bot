@@ -43,6 +43,12 @@ app.add_api_route("/family/invite-by-name", family.invite_by_name_legacy, method
 app.add_api_route("/family/invite", family.invite_family, methods=["POST"])
 app.add_api_route("/family/accept", family.accept_invite, methods=["POST"])
 app.add_api_route("/family/invite/{token}", family.invite_info, methods=["GET"])
+app.add_api_route("/family/invites/incoming", family.incoming_invite, methods=["GET"])
+app.add_api_route("/family/remove-partner", family.remove_partner, methods=["POST"])
+app.add_api_route("/family/invite/{token}/accept", family.accept_invite, methods=["POST"])
+app.add_api_route("/family/invite/{token}/decline", family.decline_invite, methods=["POST"])
+app.add_api_route("/family/invite/{token}/cancel", family.cancel_invite, methods=["POST"])
+app.add_api_route("/family/invite-by-username/cancel", family.cancel_invite_by_username, methods=["POST"])
 
 def _ensure_family_group_column():
     if not engine.url.get_backend_name().startswith("sqlite"):
