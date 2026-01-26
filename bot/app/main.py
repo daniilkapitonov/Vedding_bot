@@ -1,5 +1,6 @@
 import threading
 import requests
+from requests import RequestException
 from flask import Flask, request, jsonify
 
 import telebot
@@ -22,14 +23,31 @@ def is_admin(user_id: int) -> bool:
 def api_headers():
     return {"x-internal-secret": INTERNAL_SECRET}
 
+class _ApiResp:
+    def __init__(self, ok: bool, data: dict | None = None, text: str = ""):
+        self.ok = ok
+        self._data = data or {}
+        self.text = text
+    def json(self):
+        return self._data
+
 def api_get(path: str, params: dict | None = None):
-    return requests.get(f"{API_BASE_URL}{path}", headers=api_headers(), params=params, timeout=8)
+    try:
+        return requests.get(f"{API_BASE_URL}{path}", headers=api_headers(), params=params, timeout=8)
+    except RequestException as e:
+        return _ApiResp(False, text=str(e))
 
 def api_post(path: str, payload: dict):
-    return requests.post(f"{API_BASE_URL}{path}", headers=api_headers(), json=payload, timeout=8)
+    try:
+        return requests.post(f"{API_BASE_URL}{path}", headers=api_headers(), json=payload, timeout=8)
+    except RequestException as e:
+        return _ApiResp(False, text=str(e))
 
 def api_delete(path: str):
-    return requests.delete(f"{API_BASE_URL}{path}", headers=api_headers(), timeout=8)
+    try:
+        return requests.delete(f"{API_BASE_URL}{path}", headers=api_headers(), timeout=8)
+    except RequestException as e:
+        return _ApiResp(False, text=str(e))
 
 def get_system_notifications_enabled(admin_id: int) -> bool:
     res = api_get("/api/admin/notification-settings", params={"admin_id": admin_id})
@@ -291,6 +309,24 @@ def delete_guest_cb(c):
 
 @bot.message_handler(func=lambda m: is_admin(m.from_user.id))
 def admin_text_router(m: Message):
+    if m.text == "Гости":
+        render_guests(m.chat.id, page=1)
+        return
+    if m.text == "Инфо о мероприятии":
+        admin_event_info(m)
+        return
+    if m.text == "DB Health":
+        admin_db_health(m)
+        return
+    if m.text == "Очистить базу":
+        admin_clear_db(m)
+        return
+    if m.text in (SYS_OFF_LABEL, SYS_ON_LABEL):
+        admin_toggle_notifications(m)
+        return
+    if (m.text or "").startswith(SYS_STATUS_PREFIX):
+        admin_notifications_status(m)
+        return
     state = ADMIN_STATE.get(m.chat.id, {})
     mode = state.get("mode")
     if mode == "guests":
