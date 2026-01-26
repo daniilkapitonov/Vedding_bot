@@ -12,7 +12,7 @@
   color: var(--text-secondary);
   font-weight: 600;
   font-size: var(--font-sm);
-  transition: transform 120ms ease, box-shadow 160ms ease;
+  transition: transform var(--anim-ms) ease, box-shadow var(--anim-ms) ease;
 }
 
 .chip:active {

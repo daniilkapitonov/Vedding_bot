@@ -53,6 +53,7 @@ class Profile(Base):
     extra_fact: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     photos_csv: Mapped[str | None] = mapped_column(Text, nullable=True)  # up to 5 Telegram file_id
+    welcome_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Partner/children linking
     partner_guest_id: Mapped[int | None] = mapped_column(ForeignKey("guests.id"), nullable=True)
@@ -125,4 +126,10 @@ class AdminSettings(Base):
     __tablename__ = "admin_settings"
     admin_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     system_notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class AppSettings(Base):
+    __tablename__ = "app_settings"
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(String(32))
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

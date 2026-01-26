@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
-from datetime import date
+from datetime import date, datetime
 import logging
 
 from ..db import get_db
@@ -111,6 +111,7 @@ def get_profile(
         extra_known_since=p.extra_known_since,
         extra_memory=p.extra_memory,
         extra_fact=p.extra_fact,
+        welcome_seen_at=p.welcome_seen_at.isoformat() if p.welcome_seen_at else None,
     )
 
 @router.post("/profile", response_model=ProfileOut)
@@ -200,6 +201,18 @@ async def upsert_profile(
 
     return get_profile(x_tg_initdata, x_invite_token, db)
 
+@router.post("/profile/welcome-seen")
+def mark_welcome_seen(
+    x_tg_initdata: str | None = Header(default=None),
+    x_invite_token: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    guest = _guest_from_initdata(x_tg_initdata, x_invite_token, db)
+    p: Profile = guest.profile
+    p.welcome_seen_at = datetime.utcnow()
+    db.add(p)
+    db.commit()
+    return {"ok": True, "welcome_seen_at": p.welcome_seen_at.isoformat()}
 @router.post("/extra", response_model=ProfileOut)
 async def save_extra(
     body: ExtraIn,

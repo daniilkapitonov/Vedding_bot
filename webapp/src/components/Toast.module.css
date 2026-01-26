@@ -11,7 +11,7 @@
   color: var(--text-secondary);
   font-weight: 600;
   font-size: var(--font-xs);
-  animation: toastIn 160ms ease;
+  animation: toastIn var(--anim-ms) ease;
 }
 
 .error {

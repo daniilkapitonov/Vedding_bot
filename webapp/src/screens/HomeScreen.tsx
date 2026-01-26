@@ -8,7 +8,7 @@ import { ChipsMultiSelect } from "../components/ChipsMultiSelect";
 import { BottomBar } from "../components/bottombar";
 import { daysUntil } from "../utils/date";
 import { ModalSheet } from "../components/ModalSheet";
-import { api, tgInitData, TempProfile, getInviteToken } from "../api";
+import { api, tgInitData, TempProfile, getInviteToken, markWelcomeSeen } from "../api";
 import coupleImage from "../assets/married-people-v2.png";
 import { Toast } from "../components/Toast";
 import { getTelegramUser, getTelegramUserId } from "../utils/telegram";
@@ -106,6 +106,8 @@ export function HomeScreen(props: {
   const dirtyRef = useRef(false);
   const [rsvpTouched, setRsvpTouched] = useState(false);
   const [showFirstTime, setShowFirstTime] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [welcomeEnabled, setWelcomeEnabled] = useState(true);
 
   const days = useMemo(() => daysUntil(WEDDING_ISO), []);
   const rsvpStatus =
@@ -114,6 +116,12 @@ export function HomeScreen(props: {
       : state.rsvp === "no"
         ? "Вы указали, что не сможете присутствовать"
         : "Вы указали, что пока не уверены";
+  const rsvpWarm =
+    state.rsvp === "yes"
+      ? "Очень рады, что вы будете с нами 💚"
+      : state.rsvp === "no"
+        ? "Спасибо, что сообщили. Мы всё понимаем."
+        : "Ничего страшного — можно изменить решение позже.";
 
   useEffect(() => {
     const tgUser = getTelegramUser();
@@ -138,6 +146,13 @@ export function HomeScreen(props: {
         setShowFirstTime(false);
       }
     }
+    try {
+      const cached = localStorage.getItem("wedding.uiSettings");
+      if (cached) {
+        const data = JSON.parse(cached);
+        setWelcomeEnabled(data?.welcome_tooltip_enabled !== false);
+      }
+    } catch {}
     const initData = tgInitData();
     const inviteToken = getInviteToken();
     if (initData || inviteToken) {
@@ -153,6 +168,13 @@ export function HomeScreen(props: {
           setShowFirstTime(false);
         } else {
           setShowFirstTime(true);
+        }
+        const seenKey = `wedding.welcomeSeen.${tgUserId || "guest"}`;
+        const localSeen = localStorage.getItem(seenKey);
+        if (!remote.welcome_seen_at && !localSeen) {
+          setShowWelcome(true);
+        } else {
+          setShowWelcome(false);
         }
         dispatch({ type: "hydrate", value: {
           rsvp: remoteRsvp || "yes",
@@ -177,6 +199,10 @@ export function HomeScreen(props: {
     }
     if (!local) {
       setShowFirstTime(true);
+      const seenKey = `wedding.welcomeSeen.${tgUserId || "guest"}`;
+      if (!localStorage.getItem(seenKey)) {
+        setShowWelcome(true);
+      }
     }
   }, []);
 
@@ -280,6 +306,24 @@ export function HomeScreen(props: {
           </div>
           <div className={styles.heroTitle}>Добро пожаловать на нашу свадьбу</div>
         </GlassCard>
+        {showWelcome && welcomeEnabled ? (
+          <GlassCard>
+            <div className={styles.welcomeText}>
+              Рады видеть вас здесь 💚 Заполните анкету — это займёт пару минут.
+            </div>
+            <button
+              className={styles.welcomeBtn}
+              onClick={() => {
+                setShowWelcome(false);
+                const seenKey = `wedding.welcomeSeen.${getTelegramUserId() || "guest"}`;
+                localStorage.setItem(seenKey, "1");
+                markWelcomeSeen().catch(() => {});
+              }}
+            >
+              Понятно
+            </button>
+          </GlassCard>
+        ) : null}
 
         <GlassCard title="Сможете присутствовать?">
           <SegmentedControl
@@ -287,6 +331,7 @@ export function HomeScreen(props: {
             onChange={(value) => confirmRsvpChange(value)}
           />
           <div className={styles.rsvpStatus}>{rsvpStatus}</div>
+          <div className={styles.rsvpWarm}>{rsvpWarm}</div>
           {showFirstTime ? (
             <div className={styles.firstTimeBanner}>
               Вы не выбрали свой статус — отметьте, будете ли вы присутствовать на свадьбе.

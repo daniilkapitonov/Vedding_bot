@@ -168,3 +168,11 @@ export async function declineFamilyInvite(token: string) {
 export async function sendQuestion(text: string) {
   return req("/api/questions", "POST", { text });
 }
+
+export async function getUiSettings() {
+  return fetch(`${API_BASE}/api/ui-settings`).then((r) => r.json());
+}
+
+export async function markWelcomeSeen() {
+  return req("/api/profile/welcome-seen", "POST");
+}

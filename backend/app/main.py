@@ -49,6 +49,7 @@ app.add_api_route("/family/invite/{token}/accept", family.accept_invite, methods
 app.add_api_route("/family/invite/{token}/decline", family.decline_invite, methods=["POST"])
 app.add_api_route("/family/invite/{token}/cancel", family.cancel_invite, methods=["POST"])
 app.add_api_route("/family/invite-by-username/cancel", family.cancel_invite_by_username, methods=["POST"])
+app.add_api_route("/api/ui-settings", admin.get_ui_settings_public, methods=["GET"])
 
 def _ensure_family_group_column():
     if not engine.url.get_backend_name().startswith("sqlite"):
@@ -58,6 +59,11 @@ def _ensure_family_group_column():
         col_names = {row[1] for row in cols}
         if "family_group_id" not in col_names:
             conn.execute(text("ALTER TABLE guests ADD COLUMN family_group_id INTEGER"))
+
+        cols = conn.execute(text("PRAGMA table_info(profiles)")).fetchall()
+        col_names = {row[1] for row in cols}
+        if "welcome_seen_at" not in col_names:
+            conn.execute(text("ALTER TABLE profiles ADD COLUMN welcome_seen_at DATETIME"))
 
         cols = conn.execute(text("PRAGMA table_info(invite_tokens)")).fetchall()
         col_names = {row[1] for row in cols}

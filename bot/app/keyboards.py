@@ -5,22 +5,26 @@ def main_kb(webapp_url: str):
     kb.add(KeyboardButton("Открыть свадебное приложение", web_app=WebAppInfo(url=webapp_url)))
     return kb
 
-def admin_kb(system_enabled: bool = False):
+def admin_kb(system_enabled: bool = False, animations_enabled: bool = True):
     label = "🔕 Отключить системные уведомления" if system_enabled else "🔔 Включить системные уведомления"
+    anim_label = "✨ Анимации: ВКЛ" if animations_enabled else "✨ Анимации: ВЫКЛ"
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     kb.add(KeyboardButton("Гости"), KeyboardButton("Инфо о мероприятии"))
     kb.row(KeyboardButton("Удалить гостя"), KeyboardButton("DB Health"))
     kb.add(KeyboardButton(label))
+    kb.add(KeyboardButton(anim_label))
     kb.add(KeyboardButton("Очистить базу"))
     return kb
 
-def admin_main_kb(webapp_url: str, system_enabled: bool = False):
+def admin_main_kb(webapp_url: str, system_enabled: bool = False, animations_enabled: bool = True):
     label = "🔕 Отключить системные уведомления" if system_enabled else "🔔 Включить системные уведомления"
+    anim_label = "✨ Анимации: ВКЛ" if animations_enabled else "✨ Анимации: ВЫКЛ"
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     kb.add(KeyboardButton("Открыть свадебное приложение", web_app=WebAppInfo(url=webapp_url)))
     kb.add(KeyboardButton("Гости"), KeyboardButton("Инфо о мероприятии"))
     kb.row(KeyboardButton("Удалить гостя"), KeyboardButton("DB Health"))
     kb.add(KeyboardButton(label))
+    kb.add(KeyboardButton(anim_label))
     kb.add(KeyboardButton("Очистить базу"))
     return kb
 

@@ -47,6 +47,7 @@ class ProfileOut(BaseModel):
     extra_known_since: Optional[str] = None
     extra_memory: Optional[str] = None
     extra_fact: Optional[str] = None
+    welcome_seen_at: Optional[str] = None
 
 class ExtraIn(BaseModel):
     extra_known_since: Optional[str] = Field(default=None, pattern="^(groom|bride|both)?$")

@@ -4,7 +4,7 @@ from sqlalchemy import text, func
 import os
 
 from ..db import get_db, engine
-from ..models import Guest, Profile, EventInfo, Group, GroupMember, FamilyGroup, InviteToken, ChangeLog, FamilyProfile, AdminSettings
+from ..models import Guest, Profile, EventInfo, Group, GroupMember, FamilyGroup, InviteToken, ChangeLog, FamilyProfile, AdminSettings, AppSettings
 from ..schemas import AdminEventInfoIn, BroadcastIn
 from ..config import settings
 from ..services.telegram_auth import verify_telegram_init_data
@@ -213,6 +213,58 @@ def set_notification_settings(
         db.add(row)
     db.commit()
     return {"admin_id": admin_id, "system_notifications_enabled": enabled}
+
+def _get_app_setting(db: Session, key: str, default: bool) -> bool:
+    row = db.query(AppSettings).filter(AppSettings.key == key).one_or_none()
+    if not row:
+        return default
+    return row.value.lower() == "true"
+
+def _set_app_setting(db: Session, key: str, value: bool) -> None:
+    row = db.query(AppSettings).filter(AppSettings.key == key).one_or_none()
+    if not row:
+        row = AppSettings(key=key, value="true" if value else "false")
+        db.add(row)
+    else:
+        row.value = "true" if value else "false"
+        db.add(row)
+    db.commit()
+
+@router.get("/ui-settings")
+def get_ui_settings_admin(
+    x_tg_initdata: str | None = Header(default=None),
+    x_internal_secret: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    _assert_admin_or_internal(x_tg_initdata, x_internal_secret)
+    return {
+        "ui_animations_enabled": _get_app_setting(db, "ui_animations_enabled", True),
+        "welcome_tooltip_enabled": _get_app_setting(db, "welcome_tooltip_enabled", True),
+    }
+
+@router.post("/ui-settings")
+def set_ui_settings_admin(
+    body: dict,
+    x_tg_initdata: str | None = Header(default=None),
+    x_internal_secret: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    _assert_admin_or_internal(x_tg_initdata, x_internal_secret)
+    if "ui_animations_enabled" in body:
+        _set_app_setting(db, "ui_animations_enabled", bool(body.get("ui_animations_enabled")))
+    if "welcome_tooltip_enabled" in body:
+        _set_app_setting(db, "welcome_tooltip_enabled", bool(body.get("welcome_tooltip_enabled")))
+    return {
+        "ui_animations_enabled": _get_app_setting(db, "ui_animations_enabled", True),
+        "welcome_tooltip_enabled": _get_app_setting(db, "welcome_tooltip_enabled", True),
+    }
+
+@router.get("/ui-settings-public")
+def get_ui_settings_public(db: Session = Depends(get_db)):
+    return {
+        "ui_animations_enabled": _get_app_setting(db, "ui_animations_enabled", True),
+        "welcome_tooltip_enabled": _get_app_setting(db, "welcome_tooltip_enabled", True),
+    }
 
 @router.get("/db-health")
 def db_health(

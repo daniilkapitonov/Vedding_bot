@@ -18,7 +18,7 @@
   justify-content: center;
   gap: 8px;
   box-shadow: var(--shadow-1);
-  transition: transform 120ms ease, box-shadow 160ms ease;
+  transition: transform var(--anim-ms) ease, box-shadow var(--anim-ms) ease;
   text-align: center;
   line-height: 1.1;
   min-height: 52px;

@@ -48,6 +48,7 @@
   --font-base: 18px;
   --font-sm: 18px;
   --font-xs: 16px;
+  --anim-ms: 180ms;
 
   color-scheme: light;
 }

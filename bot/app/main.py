@@ -15,6 +15,8 @@ BOT_USERNAME = None
 ADMIN_STATE = {}
 SYS_OFF_LABEL = "🔕 Отключить системные уведомления"
 SYS_ON_LABEL = "🔔 Включить системные уведомления"
+ANIM_ON_LABEL = "✨ Анимации: ВКЛ"
+ANIM_OFF_LABEL = "✨ Анимации: ВЫКЛ"
 
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
@@ -59,6 +61,16 @@ def get_system_notifications_enabled(admin_id: int) -> bool:
     if res.ok:
         return bool(res.json().get("system_notifications_enabled", False))
     return False
+
+def get_ui_settings() -> dict:
+    res = api_get("/api/admin/ui-settings")
+    if res.ok:
+        return res.json()
+    return {"ui_animations_enabled": True, "welcome_tooltip_enabled": True}
+
+def set_ui_settings(animations_enabled: bool) -> bool:
+    res = api_post("/api/admin/ui-settings", {"ui_animations_enabled": animations_enabled})
+    return res.ok
 
 def set_system_notifications_enabled(admin_id: int, enabled: bool) -> bool:
     res = api_post("/api/admin/notification-settings", {"admin_id": admin_id, "system_notifications_enabled": enabled})
@@ -162,7 +174,8 @@ def start(m: Message):
             bot.send_message(m.chat.id, "Не удалось принять приглашение.")
     if is_admin(m.from_user.id):
         enabled = get_system_notifications_enabled(m.from_user.id)
-        reply = admin_main_kb(WEBAPP_URL, enabled)
+        ui = get_ui_settings()
+        reply = admin_main_kb(WEBAPP_URL, enabled, bool(ui.get("ui_animations_enabled", True)))
     else:
         reply = main_kb(WEBAPP_URL)
     bot.send_message(
@@ -176,7 +189,8 @@ def admin_help(m: Message):
     if not is_admin(m.from_user.id):
         return
     enabled = get_system_notifications_enabled(m.from_user.id)
-    bot.send_message(m.chat.id, "Админ-меню:", reply_markup=admin_kb(enabled))
+    ui = get_ui_settings()
+    bot.send_message(m.chat.id, "Админ-меню:", reply_markup=admin_kb(enabled, bool(ui.get("ui_animations_enabled", True))))
 
 @bot.message_handler(commands=["invite"])
 def invite_family(m: Message):
@@ -249,9 +263,21 @@ def admin_toggle_notifications(m: Message):
     target = not current
     if set_system_notifications_enabled(m.from_user.id, target):
         status = "включены" if target else "отключены"
-        bot.send_message(m.chat.id, f"Системные уведомления {status}.", reply_markup=admin_kb(target))
+        ui = get_ui_settings()
+        bot.send_message(m.chat.id, f"Системные уведомления {status}.", reply_markup=admin_kb(target, bool(ui.get("ui_animations_enabled", True))))
     else:
         bot.send_message(m.chat.id, "Не удалось изменить настройки уведомлений.")
+
+@bot.message_handler(func=lambda m: is_admin(m.from_user.id) and m.text in (ANIM_ON_LABEL, ANIM_OFF_LABEL))
+def admin_toggle_animations(m: Message):
+    current = get_ui_settings().get("ui_animations_enabled", True)
+    target = not bool(current)
+    if set_ui_settings(target):
+        status = "ВКЛ" if target else "ВЫКЛ"
+        enabled = get_system_notifications_enabled(m.from_user.id)
+        bot.send_message(m.chat.id, f"Анимации: {status}.", reply_markup=admin_kb(enabled, target))
+    else:
+        bot.send_message(m.chat.id, "Не удалось изменить настройки анимаций.")
 
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("clear_db:"))
@@ -339,6 +365,9 @@ def admin_text_router(m: Message):
         return
     if m.text in (SYS_OFF_LABEL, SYS_ON_LABEL):
         admin_toggle_notifications(m)
+        return
+    if m.text in (ANIM_ON_LABEL, ANIM_OFF_LABEL):
+        admin_toggle_animations(m)
         return
     state = ADMIN_STATE.get(m.chat.id, {})
     mode = state.get("mode")
