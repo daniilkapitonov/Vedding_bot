@@ -21,6 +21,8 @@ Base.metadata.create_all(bind=engine)
 app.include_router(auth.router)
 app.include_router(profile.router)
 app.include_router(event_info.router)
+if hasattr(event_info, "legacy_router"):
+    app.include_router(event_info.legacy_router)
 app.include_router(admin.router)
 app.include_router(family.router)
 app.include_router(questions.router)
@@ -64,6 +66,8 @@ def _ensure_family_group_column():
         col_names = {row[1] for row in cols}
         if "welcome_seen_at" not in col_names:
             conn.execute(text("ALTER TABLE profiles ADD COLUMN welcome_seen_at DATETIME"))
+        if "is_best_friend" not in col_names:
+            conn.execute(text("ALTER TABLE profiles ADD COLUMN is_best_friend BOOLEAN DEFAULT 0"))
 
         cols = conn.execute(text("PRAGMA table_info(invite_tokens)")).fetchall()
         col_names = {row[1] for row in cols}

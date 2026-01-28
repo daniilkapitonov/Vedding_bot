@@ -7,7 +7,7 @@ import { ModalSheet } from "../components/ModalSheet";
 import { BottomBar } from "../components/bottombar";
 import { Toast } from "../components/Toast";
 import { openLink, openTelegramLink } from "../utils/telegram";
-import { sendQuestion } from "../api";
+import { sendQuestion, api } from "../api";
 
 const WEDDING_ISO = "2026-07-25T16:00:00+03:00";
 
@@ -18,6 +18,8 @@ export function EventScreen(props: { onBack: () => void; onMenu: (rect: DOMRect)
   const [toastVariant, setToastVariant] = useState<"ok" | "error">("ok");
   const [question, setQuestion] = useState("");
   const mapRef = useRef<HTMLDivElement | null>(null);
+  const [content, setContent] = useState<any | null>(null);
+  const [timing, setTiming] = useState<Array<{ time: string; title: string }>>([]);
 
   const locationName = "La Provincia";
   const locationAddress = "Калужская площадь, 1, стр. 4";
@@ -61,6 +63,37 @@ export function EventScreen(props: { onBack: () => void; onMenu: (rect: DOMRect)
     };
   }, []);
 
+  useEffect(() => {
+    api.eventContent()
+      .then((data: any) => setContent(data || {}))
+      .catch(() => setContent({}));
+    api.eventTimingMe()
+      .then((res: any) => setTiming(res?.items || []))
+      .catch(() => setTiming([]));
+  }, []);
+
+  function renderTextBlock(value?: string) {
+    if (!value) return null;
+    const lines = value.split("\n");
+    return (
+      <div className={styles.textBlock}>
+        {lines.map((line, idx) => {
+          const trimmed = line.trim();
+          if (!trimmed) return <div key={idx} className={styles.textSpacer} />;
+          if (trimmed.startsWith("- ")) {
+            return (
+              <div key={idx} className={styles.bulletItem}>
+                <span className={styles.bulletDot} />
+                <span>{trimmed.slice(2)}</span>
+              </div>
+            );
+          }
+          return <div key={idx} className={styles.textLine}>{trimmed}</div>;
+        })}
+      </div>
+    );
+  }
+
   return (
     <div className={styles.page}>
       <FrostedHeader
@@ -75,37 +108,35 @@ export function EventScreen(props: { onBack: () => void; onMenu: (rect: DOMRect)
       <main className={styles.content}>
         <GlassCard title="Локация" subtitle={locationName}>
           <div className={styles.text}>Адрес: {locationAddress}</div>
+          {renderTextBlock(content?.event_location_text)}
           <div className={styles.mapContainer} ref={mapRef} />
           <button className={styles.secondaryBtn} onClick={() => openLink(locationLink)}>Открыть маршрут</button>
         </GlassCard>
 
         <GlassCard title="Тайминг">
           <div className={styles.timeline}>
-            {[
-              ["16:00", "Сбор гостей"],
-              ["17:00", "Церемония"],
-              ["18:00", "Банкет"],
-              ["21:30", "Торт"],
-            ].map(([time, label]) => (
-              <div key={label} className={styles.timeRow}>
-                <span className={styles.timeBadge}>{time}</span>
-                <span>{label}</span>
+            {(timing.length ? timing : [
+              { time: "16:00", title: "Сбор гостей" },
+              { time: "17:00", title: "Церемония" },
+              { time: "18:00", title: "Банкет" },
+              { time: "21:30", title: "Торт" },
+            ]).map((item) => (
+              <div key={`${item.time}-${item.title}`} className={styles.timeRow}>
+                <span className={styles.timeDot} />
+                <span className={styles.timeBadge}>{item.time}</span>
+                <span>{item.title}</span>
               </div>
             ))}
           </div>
         </GlassCard>
 
         <GlassCard title="Дресс-код">
-          <div className={styles.text}>Тёплые нейтральные оттенки, пастельные акценты.</div>
-          <div className={styles.colorRow}>
-            <span className={styles.dot} data-color="olive" />
-            <span className={styles.dot} data-color="emerald" />
-            <span className={styles.dot} data-color="gold" />
-          </div>
+          {renderTextBlock(content?.dresscode_text)}
+          <div className={styles.dressGradientBar} />
         </GlassCard>
 
         <GlassCard title="Контакты">
-          <div className={styles.text}>Организатор: {contactPhone}</div>
+          {renderTextBlock(content?.contacts_text)}
           <div className={styles.text}>
             TG: <button className={styles.linkBtn} onClick={() => openTelegramLink(contactTg)}>@D_Kapa</button>
           </div>
@@ -113,23 +144,15 @@ export function EventScreen(props: { onBack: () => void; onMenu: (rect: DOMRect)
         </GlassCard>
 
         <GlassCard title="Подарки">
-          <div className={styles.text}>Лучший подарок — вклад в наше путешествие или сертификат.</div>
-        </GlassCard>
-        <GlassCard title="Дети">
-          <div className={styles.text}>Мы будем рады детям, но отметьте это заранее в анкете.</div>
+          {renderTextBlock(content?.gifts_text)}
         </GlassCard>
         <GlassCard title="Вопросы">
-          <div className={styles.faqItem}>Можно ли взять +1? — Да, укажите в разделе “Семья”.</div>
-          <div className={styles.faqItem}>Есть ли дресс-код? — Тёплые нейтральные оттенки.</div>
-          <div className={styles.faqItem}>Можно ли фото? — Конечно, будем рады.</div>
+          {renderTextBlock(content?.faq_text)}
         </GlassCard>
         <button className={styles.askBtn} onClick={() => setAskOpen(true)}>Задать вопрос</button>
 
         <GlassCard title="Как добавить партнёра">
-          <div className={styles.text}>
-            Откройте раздел “Семья”, включите «Буду с парой» и отправьте приглашение по ФИО.
-            Мы аккуратно всё свяжем.
-          </div>
+          {renderTextBlock(content?.how_to_add_partner_text)}
         </GlassCard>
       </main>
 

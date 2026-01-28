@@ -5,7 +5,7 @@ import logging
 
 from ..db import get_db
 from ..models import Guest, Profile, ChangeLog
-from ..schemas import ProfileIn, ProfileOut, ExtraIn, PartnerLinkIn
+from ..schemas import ProfileIn, ProfileOut, ExtraIn, PartnerLinkIn, ProfileExistsOut
 from ..config import settings
 from ..services.telegram_auth import verify_telegram_init_data, get_guest_from_invite
 from ..services.notifier import send_admin_message
@@ -101,6 +101,7 @@ def get_profile(
         phone=guest.phone,
         side=p.side,
         is_relative=p.is_relative,
+        is_best_friend=p.is_best_friend,
         food_pref=p.food_pref,
         food_allergies=p.food_allergies,
         alcohol_prefs=_split_csv(p.alcohol_prefs_csv),
@@ -113,6 +114,24 @@ def get_profile(
         extra_fact=p.extra_fact,
         welcome_seen_at=p.welcome_seen_at.isoformat() if p.welcome_seen_at else None,
     )
+
+@router.get("/profile/exists", response_model=ProfileExistsOut)
+def profile_exists(
+    x_tg_initdata: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    if not x_tg_initdata:
+        return ProfileExistsOut(exists=False)
+    try:
+        user = verify_telegram_init_data(x_tg_initdata, settings.BOT_TOKEN)
+    except ValueError:
+        return ProfileExistsOut(exists=False)
+    tg_id = int(user["id"])
+    guest = db.query(Guest).filter(Guest.telegram_user_id == tg_id).one_or_none()
+    if not guest or not guest.profile:
+        return ProfileExistsOut(exists=False)
+    p = guest.profile
+    return ProfileExistsOut(exists=True, welcome_seen_at=p.welcome_seen_at.isoformat() if p.welcome_seen_at else None)
 
 @router.post("/profile", response_model=ProfileOut)
 async def upsert_profile(

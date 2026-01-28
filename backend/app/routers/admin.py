@@ -4,7 +4,7 @@ from sqlalchemy import text, func
 import os
 
 from ..db import get_db, engine
-from ..models import Guest, Profile, EventInfo, Group, GroupMember, FamilyGroup, InviteToken, ChangeLog, FamilyProfile, AdminSettings, AppSettings
+from ..models import Guest, Profile, EventInfo, Group, GroupMember, FamilyGroup, InviteToken, ChangeLog, FamilyProfile, AdminSettings, AppSettings, EventContent, EventTiming
 from ..schemas import AdminEventInfoIn, BroadcastIn
 from ..config import settings
 from ..services.telegram_auth import verify_telegram_init_data
@@ -81,9 +81,105 @@ def list_guests(
             "family_group_id": g.family_group_id,
             "family_members_count": family_counts.get(g.family_group_id or 0, 0) if g.family_group_id else 0,
             "children_count": children_count,
+            "best_friend": bool(getattr(p, "is_best_friend", False)),
             "updated_at": g.updated_at.isoformat() if g.updated_at else None,
         })
     return {"items": out, "total": total, "page": page, "page_size": page_size}
+
+def _event_content_get(db: Session, key: str, default: str) -> str:
+    row = db.query(EventContent).filter(EventContent.key == key).one_or_none()
+    if not row:
+        row = EventContent(key=key, value_text=default)
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+    return row.value_text
+
+def _event_content_set(db: Session, key: str, value: str) -> None:
+    row = db.query(EventContent).filter(EventContent.key == key).one_or_none()
+    if not row:
+        row = EventContent(key=key, value_text=value)
+        db.add(row)
+    else:
+        row.value_text = value
+        db.add(row)
+    db.commit()
+
+@router.get("/event-content")
+def get_event_content_admin(
+    x_tg_initdata: str | None = Header(default=None),
+    x_internal_secret: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    _assert_admin_or_internal(x_tg_initdata, x_internal_secret)
+    from .event_info import DEFAULT_EVENT_CONTENT
+    data = {}
+    for key, default_text in DEFAULT_EVENT_CONTENT.items():
+        data[key] = _event_content_get(db, key, default_text)
+    return data
+
+@router.post("/event-content")
+def set_event_content_admin(
+    body: dict,
+    x_tg_initdata: str | None = Header(default=None),
+    x_internal_secret: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    _assert_admin_or_internal(x_tg_initdata, x_internal_secret)
+    key = (body.get("key") or "").strip()
+    value = body.get("value_text") or ""
+    if not key:
+        raise HTTPException(400, "Missing key")
+    _event_content_set(db, key, value)
+    return {"ok": True, "key": key}
+
+def _set_timing(db: Session, group: int, items: list[dict]) -> None:
+    import json as _json
+    row = db.query(EventTiming).filter(EventTiming.group == group).one_or_none()
+    if not row:
+        row = EventTiming(group=group, value_json=_json.dumps(items, ensure_ascii=False))
+        db.add(row)
+    else:
+        row.value_json = _json.dumps(items, ensure_ascii=False)
+        db.add(row)
+    db.commit()
+
+def _get_timing(db: Session, group: int) -> list[dict]:
+    import json as _json
+    row = db.query(EventTiming).filter(EventTiming.group == group).one_or_none()
+    if not row:
+        return []
+    try:
+        return _json.loads(row.value_json or "[]")
+    except Exception:
+        return []
+
+@router.get("/event-timing")
+def get_event_timing_admin(
+    x_tg_initdata: str | None = Header(default=None),
+    x_internal_secret: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    _assert_admin_or_internal(x_tg_initdata, x_internal_secret)
+    return {
+        "group1": _get_timing(db, 1),
+        "group2": _get_timing(db, 2),
+    }
+
+@router.post("/event-timing")
+def set_event_timing_admin(
+    body: dict,
+    x_tg_initdata: str | None = Header(default=None),
+    x_internal_secret: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    _assert_admin_or_internal(x_tg_initdata, x_internal_secret)
+    group = int(body.get("group") or 0)
+    items = body.get("items") or []
+    if group not in (1, 2):
+        raise HTTPException(400, "Invalid group")
+    _set_timing(db, group, items)
+    return {"ok": True, "group": group, "count": len(items)}
 
 @router.get("/event")
 def get_event_info(

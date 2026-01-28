@@ -83,10 +83,13 @@ export const api = {
   },
 
   getProfile: () => req("/api/profile", "GET"),
+  profileExists: () => req("/api/profile/exists", "GET"),
   saveProfile: (payload: any) => req("/api/profile", "POST", payload),
   saveExtra: (payload: any) => req("/api/extra", "POST", payload),
   linkPartner: (payload: any) => req("/api/partner/link", "POST", payload),
-  eventInfo: () => fetch(`${API_BASE}/api/event`).then(r=>r.json())
+  eventInfo: () => fetch(`${API_BASE}/api/event`).then(r=>r.json()),
+  eventContent: () => req("/api/event-info/content", "GET"),
+  eventTimingMe: () => req("/api/event-info/timing/me", "GET"),
 };
 
 export type TempProfile = {

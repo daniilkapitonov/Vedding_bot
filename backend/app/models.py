@@ -42,6 +42,7 @@ class Profile(Base):
     gender: Mapped[str | None] = mapped_column(String(16), nullable=True)  # male/female/other
     side: Mapped[str | None] = mapped_column(String(16), nullable=True)    # groom/bride/both
     is_relative: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_best_friend: Mapped[bool] = mapped_column(Boolean, default=False)
 
     food_pref: Mapped[str | None] = mapped_column(String(16), nullable=True)  # fish/meat/vegan
     food_allergies: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -66,6 +67,18 @@ class EventInfo(Base):
     __tablename__ = "event_info"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     content: Mapped[str] = mapped_column(Text, default="Заглушка: здесь будет общая информация о мероприятии.")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class EventContent(Base):
+    __tablename__ = "event_content"
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value_text: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class EventTiming(Base):
+    __tablename__ = "event_timing"
+    group: Mapped[int] = mapped_column(Integer, primary_key=True)
+    value_json: Mapped[str] = mapped_column(Text, default="[]")
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class FamilyGroup(Base):

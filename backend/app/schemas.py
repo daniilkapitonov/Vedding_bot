@@ -48,6 +48,19 @@ class ProfileOut(BaseModel):
     extra_memory: Optional[str] = None
     extra_fact: Optional[str] = None
     welcome_seen_at: Optional[str] = None
+    is_best_friend: Optional[bool] = None
+
+class ProfileExistsOut(BaseModel):
+    exists: bool
+    welcome_seen_at: Optional[str] = None
+
+class EventTimingItem(BaseModel):
+    time: str
+    title: str
+
+class EventTimingOut(BaseModel):
+    items: List[EventTimingItem]
+    welcome_seen_at: Optional[str] = None
 
 class ExtraIn(BaseModel):
     extra_known_since: Optional[str] = Field(default=None, pattern="^(groom|bride|both)?$")

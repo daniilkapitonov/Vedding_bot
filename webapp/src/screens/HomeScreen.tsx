@@ -108,6 +108,8 @@ export function HomeScreen(props: {
   const [showFirstTime, setShowFirstTime] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [welcomeEnabled, setWelcomeEnabled] = useState(true);
+  const [forceWelcome, setForceWelcome] = useState(false);
+  const forceWelcomeRef = useRef(false);
 
   const days = useMemo(() => daysUntil(WEDDING_ISO), []);
   const rsvpStatus =
@@ -156,39 +158,54 @@ export function HomeScreen(props: {
     const initData = tgInitData();
     const inviteToken = getInviteToken();
     if (initData || inviteToken) {
-      api.auth().then(() => api.getProfile()).then((remote: any) => {
-        if (!remote) return;
-        if (dirtyRef.current) return;
-        const alcohol = (remote.alcohol_prefs || []).map((v: string) =>
-          v === "Не пью" ? "Не пью алкоголь" : v
-        );
-        const remoteRsvp = remote.rsvp_status || "";
-        if (remoteRsvp === "yes" || remoteRsvp === "no" || remoteRsvp === "maybe") {
-          setRsvpTouched(true);
-          setShowFirstTime(false);
-        } else {
-          setShowFirstTime(true);
-        }
-        const seenKey = `wedding.welcomeSeen.${tgUserId || "guest"}`;
-        const localSeen = localStorage.getItem(seenKey);
-        if (!remote.welcome_seen_at && !localSeen) {
-          setShowWelcome(true);
-        } else {
-          setShowWelcome(false);
-        }
-        dispatch({ type: "hydrate", value: {
-          rsvp: remoteRsvp || "yes",
-          fullName: remote.full_name || "",
-          birthDate: remote.birth_date || "",
-          gender: remote.gender || "",
-          phone: remote.phone || "",
-          side: remote.side || "",
-          relative: Boolean(remote.is_relative),
-          food: remote.food_pref || "",
-          allergies: remote.food_allergies || "",
-          alcohol
-        }});
-      }).catch(() => {});
+      (async () => {
+        try {
+          const existsRes: any = await api.profileExists();
+          const exists = Boolean(existsRes?.exists);
+          forceWelcomeRef.current = !exists;
+          setForceWelcome(!exists);
+          if (!exists) {
+            setShowWelcome(true);
+          }
+        } catch {}
+        try {
+          await api.auth();
+          const remote: any = await api.getProfile();
+          if (!remote) return;
+          if (dirtyRef.current) return;
+          const alcohol = (remote.alcohol_prefs || []).map((v: string) =>
+            v === "Не пью" ? "Не пью алкоголь" : v
+          );
+          const remoteRsvp = remote.rsvp_status || "";
+          if (remoteRsvp === "yes" || remoteRsvp === "no" || remoteRsvp === "maybe") {
+            setRsvpTouched(true);
+            setShowFirstTime(false);
+          } else {
+            setShowFirstTime(true);
+          }
+          const seenKey = `wedding.welcomeSeen.${tgUserId || "guest"}`;
+          const localSeen = localStorage.getItem(seenKey);
+          if (forceWelcomeRef.current) {
+            setShowWelcome(true);
+          } else if (!remote.welcome_seen_at && !localSeen) {
+            setShowWelcome(true);
+          } else {
+            setShowWelcome(false);
+          }
+          dispatch({ type: "hydrate", value: {
+            rsvp: remoteRsvp || "yes",
+            fullName: remote.full_name || "",
+            birthDate: remote.birth_date || "",
+            gender: remote.gender || "",
+            phone: remote.phone || "",
+            side: remote.side || "",
+            relative: Boolean(remote.is_relative),
+            food: remote.food_pref || "",
+            allergies: remote.food_allergies || "",
+            alcohol
+          }});
+        } catch {}
+      })();
     }
 
     if (tgUser && !local?.fullName && !local?.full_name) {

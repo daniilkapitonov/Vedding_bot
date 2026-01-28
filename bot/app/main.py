@@ -17,6 +17,14 @@ SYS_OFF_LABEL = "🔕 Отключить системные уведомлени
 SYS_ON_LABEL = "🔔 Включить системные уведомления"
 ANIM_ON_LABEL = "✨ Анимации: ВКЛ"
 ANIM_OFF_LABEL = "✨ Анимации: ВЫКЛ"
+EVENT_SECTIONS = {
+    "event_location_text": "Локация (текст)",
+    "dresscode_text": "Дресс-код",
+    "contacts_text": "Контакты",
+    "gifts_text": "Подарки",
+    "faq_text": "Вопросы/FAQ",
+    "how_to_add_partner_text": "Как добавить партнёра",
+}
 
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
@@ -117,8 +125,8 @@ def render_guests(chat_id: int, page: int = 1, rsvp: str | None = None, q: str |
         header = (
             pad("ID", 4) + pad("Имя", 18) + pad("@", 12) + pad("RSVP", 6) +
             pad("Тел", 13) + pad("Пол", 6) + pad("Еда", 10) + pad("Алко", 12) +
-            pad("Стор", 6) + pad("Род", 4) + pad("Аллерг", 12) + pad("Сем", 4) +
-            pad("Дет", 4) + pad("Обн", 10)
+            pad("Стор", 6) + pad("Род", 4) + pad("⭐", 2) + pad("Аллерг", 12) +
+            pad("Сем", 4) + pad("Дет", 4) + pad("Обн", 10)
         )
         lines.append(header)
         lines.append("-" * len(header))
@@ -133,6 +141,7 @@ def render_guests(chat_id: int, page: int = 1, rsvp: str | None = None, q: str |
             side = it.get("side") or "—"
             relative = "Да" if it.get("relative") else "—"
             allergies = it.get("allergies") or "—"
+            star = "⭐" if it.get("best_friend") else ""
             fam = str(it.get("family_members_count") or 0) if it.get("family_group_id") else "0"
             kids = str(it.get("children_count") or 0)
             updated = (it.get("updated_at") or "")[:10] or "—"
@@ -147,6 +156,7 @@ def render_guests(chat_id: int, page: int = 1, rsvp: str | None = None, q: str |
                 pad(alcohol, 12) +
                 pad(side, 6) +
                 pad(relative, 4) +
+                pad(star, 2) +
                 pad(allergies, 12) +
                 pad(fam, 4) +
                 pad(kids, 4) +
@@ -221,6 +231,21 @@ def admin_event_info(m: Message):
     bot.send_message(m.chat.id, f"<b>Текущее инфо:</b>\n{data.get('content','')}")
     bot.send_message(m.chat.id, "Отправьте новый текст для обновления.")
     ADMIN_STATE[m.chat.id] = {"mode": "edit_event"}
+
+@bot.message_handler(func=lambda m: is_admin(m.from_user.id) and m.text == "✏️ Редактировать инфо о событии")
+def admin_event_content(m: Message):
+    kb = InlineKeyboardMarkup()
+    for key, label in EVENT_SECTIONS.items():
+        kb.add(InlineKeyboardButton(label, callback_data=f"event_section:{key}"))
+    kb.add(InlineKeyboardButton("👀 Предпросмотр", callback_data="event_preview"))
+    bot.send_message(m.chat.id, "Выберите секцию для редактирования.", reply_markup=kb)
+
+@bot.message_handler(func=lambda m: is_admin(m.from_user.id) and m.text == "⏱ Редактировать тайминг")
+def admin_event_timing(m: Message):
+    kb = InlineKeyboardMarkup()
+    kb.add(InlineKeyboardButton("Для родственников/лучших друзей", callback_data="timing_group:1"))
+    kb.add(InlineKeyboardButton("Для остальных", callback_data="timing_group:2"))
+    bot.send_message(m.chat.id, "Выберите группу тайминга.", reply_markup=kb)
 
 @bot.message_handler(func=lambda m: is_admin(m.from_user.id) and m.text == "Удалить гостя")
 def admin_delete_guest(m: Message):
@@ -349,6 +374,41 @@ def delete_guest_cb(c):
     else:
         bot.send_message(c.message.chat.id, "Не удалось удалить гостя.")
 
+@bot.callback_query_handler(func=lambda c: c.data.startswith("event_section:"))
+def event_section_cb(c):
+    if not is_admin(c.from_user.id):
+        return
+    key = c.data.split(":", 1)[1]
+    label = EVENT_SECTIONS.get(key, key)
+    ADMIN_STATE[c.message.chat.id] = {"mode": "edit_event_section", "key": key}
+    bot.send_message(c.message.chat.id, f"Секция: {label}\nПришлите текст одним сообщением. Переносы сохранятся.")
+
+@bot.callback_query_handler(func=lambda c: c.data == "event_preview")
+def event_preview_cb(c):
+    if not is_admin(c.from_user.id):
+        return
+    res = api_get("/api/admin/event-content")
+    if not res.ok:
+        bot.send_message(c.message.chat.id, "Не удалось получить текущие тексты.")
+        return
+    data = res.json()
+    lines = []
+    for key, label in EVENT_SECTIONS.items():
+        text = data.get(key, "") or "—"
+        lines.append(f"<b>{label}</b>\n{text}")
+    bot.send_message(c.message.chat.id, "\n\n".join(lines))
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("timing_group:"))
+def timing_group_cb(c):
+    if not is_admin(c.from_user.id):
+        return
+    group = int(c.data.split(":", 1)[1])
+    ADMIN_STATE[c.message.chat.id] = {"mode": "edit_timing_group", "group": group}
+    bot.send_message(
+        c.message.chat.id,
+        "Пришлите тайминг строками вида:\n16:00 Сбор гостей\n17:00 Церемония",
+    )
+
 @bot.message_handler(func=lambda m: is_admin(m.from_user.id))
 def admin_text_router(m: Message):
     if m.text == "Гости":
@@ -356,6 +416,12 @@ def admin_text_router(m: Message):
         return
     if m.text == "Инфо о мероприятии":
         admin_event_info(m)
+        return
+    if m.text == "✏️ Редактировать инфо о событии":
+        admin_event_content(m)
+        return
+    if m.text == "⏱ Редактировать тайминг":
+        admin_event_timing(m)
         return
     if m.text == "DB Health":
         admin_db_health(m)
@@ -381,6 +447,34 @@ def admin_text_router(m: Message):
             bot.send_message(m.chat.id, "Информация обновлена.")
         else:
             bot.send_message(m.chat.id, "Не удалось обновить информацию.")
+        ADMIN_STATE.pop(m.chat.id, None)
+        return
+    if mode == "edit_event_section":
+        key = state.get("key")
+        res = api_post("/api/admin/event-content", {"key": key, "value_text": m.text})
+        if res.ok:
+            bot.send_message(m.chat.id, "Секция обновлена.")
+        else:
+            bot.send_message(m.chat.id, "Не удалось обновить секцию.")
+        ADMIN_STATE.pop(m.chat.id, None)
+        return
+    if mode == "edit_timing_group":
+        group = int(state.get("group") or 0)
+        lines = [ln.strip() for ln in m.text.split("\n") if ln.strip()]
+        items = []
+        for ln in lines:
+            if len(ln) < 6 or ln[2] != ":":
+                continue
+            time = ln[:5]
+            title = ln[5:].strip()
+            if not title:
+                continue
+            items.append({"time": time, "title": title})
+        res = api_post("/api/admin/event-timing", {"group": group, "items": items})
+        if res.ok:
+            bot.send_message(m.chat.id, f"Тайминг обновлён. Строк: {len(items)}")
+        else:
+            bot.send_message(m.chat.id, "Не удалось обновить тайминг.")
         ADMIN_STATE.pop(m.chat.id, None)
         return
     if mode == "delete_lookup":

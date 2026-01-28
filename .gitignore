@@ -6,3 +6,4 @@ docker-compose.override.yml
 docker-compose.override.disabled.yml
 docker-compose.server.yml
 bot/app/config.py
+sheetssunc-f58ab6e15853.json
