@@ -4,7 +4,7 @@ from requests import RequestException
 from flask import Flask, request, jsonify
 
 import telebot
-from telebot.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from telebot.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
 
 from .config import BOT_TOKEN, ADMIN_IDS, WEBAPP_URL, API_BASE_URL, INTERNAL_SECRET
 from .keyboards import admin_kb, admin_main_kb, guests_inline_kb
@@ -187,7 +187,7 @@ def start(m: Message):
         ui = get_ui_settings()
         reply = admin_main_kb(enabled, bool(ui.get("ui_animations_enabled", True)))
     else:
-        reply = None
+        reply = ReplyKeyboardRemove()
     bot.send_message(
         m.chat.id,
         "Привет! Это свадебный бот.\nОткройте приложение через кнопку в чате.",
