@@ -32,6 +32,10 @@ def _legacy_notice():
 
 app.add_api_route("/auth/telegram", auth.auth_telegram, methods=["POST"])
 app.add_api_route("/profile/exists", profile.profile_exists, methods=["GET"])
+app.add_api_route("/profile", profile.get_profile, methods=["GET"])
+app.add_api_route("/profile", profile.upsert_profile, methods=["POST"])
+app.add_api_route("/extra", profile.save_extra, methods=["POST"])
+app.add_api_route("/questions", questions.send_question, methods=["POST"])
 app.add_api_route("/ui-settings", admin.get_ui_settings_public, methods=["GET"])
 app.add_api_route("/event-info/content", event_info.get_event_content, methods=["GET"])
 app.add_api_route("/event-info/timing/me", event_info.get_timing_for_user, methods=["GET"])
