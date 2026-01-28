@@ -35,8 +35,10 @@ export default function App() {
         } catch {}
         try {
           const existsRes: any = await api.profileExists();
-          if (!existsRes?.exists) {
+          const alreadyShown = sessionStorage.getItem("welcomeShown") === "1";
+          if (!existsRes?.exists && !alreadyShown) {
             setShowLoading(true);
+            sessionStorage.setItem("welcomeShown", "1");
             setTimeout(() => setShowLoading(false), 5000);
           }
         } catch {}

@@ -21,6 +21,7 @@ export function EventScreen(props: { onBack: () => void; onMenu: (rect: DOMRect)
   const mapRef = useRef<HTMLDivElement | null>(null);
   const [content, setContent] = useState<any | null>(null);
   const [timing, setTiming] = useState<Array<{ time: string; title: string }>>([]);
+  const [timingError, setTimingError] = useState(false);
 
   const locationName = "La Provincia";
   const locationAddress = "Калужская площадь, 1, стр. 4";
@@ -77,8 +78,17 @@ export function EventScreen(props: { onBack: () => void; onMenu: (rect: DOMRect)
       .then((data: any) => setContent(data || {}))
       .catch(() => setContent({}));
     api.eventTimingMe()
-      .then((res: any) => setTiming(res?.items || []))
-      .catch(() => setTiming([]));
+      .then((res: any) => {
+        setTimingError(false);
+        setTiming(res?.items || []);
+      })
+      .catch(() => {
+        setTimingError(true);
+        setTiming([]);
+        setToastVariant("error");
+        setToast("Не удалось загрузить расписание");
+        setTimeout(() => setToast(""), 2200);
+      });
   }, []);
 
   function renderTextBlock(value?: string) {
@@ -88,20 +98,65 @@ export function EventScreen(props: { onBack: () => void; onMenu: (rect: DOMRect)
       <div className={styles.textBlock}>
         {lines.map((line, idx) => {
           const trimmed = line.trim();
-          if (!trimmed) return <div key={idx} className={styles.textSpacer} />;
-          if (trimmed.startsWith("- ")) {
-            return (
-              <div key={idx} className={styles.bulletItem}>
-                <span className={styles.bulletDot} />
-                <span>{trimmed.slice(2)}</span>
-              </div>
-            );
-          }
-          return <div key={idx} className={styles.textLine}>{trimmed}</div>;
-        })}
-      </div>
-    );
+        if (!trimmed) return <div key={idx} className={styles.textSpacer} />;
+        if (trimmed.startsWith("- ")) {
+          return (
+            <div key={idx} className={styles.bulletItem}>
+              <span className={styles.bulletDot} />
+              <span>{trimmed.slice(2)}</span>
+            </div>
+          );
+        }
+        return <div key={idx} className={styles.textLine}>{trimmed}</div>;
+      })}
+    </div>
+  );
+}
+
+  function parseSections(rawText?: string) {
+    if (!rawText) return {};
+    const lines = rawText.split("\n");
+    const map: Record<string, string[]> = {};
+    let current = "";
+    const isHeading = (line: string) => {
+      const t = line.trim();
+      if (!t) return false;
+      if (t.length > 40) return false;
+      if (t.includes(":")) return false;
+      const known = ["Дресс-код", "Контакты", "Подарки", "Вопросы", "FAQ", "Как добавить партнёра", "Локация"];
+      return known.includes(t) || /^[A-ZА-ЯЁ][^.!?]{2,40}$/.test(t);
+    };
+    lines.forEach((ln) => {
+      const t = ln.trim();
+      if (isHeading(t)) {
+        current = t;
+        if (!map[current]) map[current] = [];
+      } else if (current) {
+        map[current].push(ln);
+      }
+    });
+    return map;
   }
+
+  const rawCombined =
+    content?.full_text ||
+    content?.raw_text ||
+    [
+      content?.event_location_text,
+      content?.dresscode_text,
+      content?.contacts_text,
+      content?.gifts_text,
+      content?.faq_text,
+      content?.how_to_add_partner_text
+    ].filter(Boolean).join("\n");
+  const parsed = parseSections(rawCombined || "");
+  const getSection = (title: string, fallbackText: string) => {
+    const body = parsed[title];
+    if (body && body.length) {
+      return body.join("\n");
+    }
+    return fallbackText;
+  };
 
   return (
     <div className={styles.page}>
@@ -117,7 +172,7 @@ export function EventScreen(props: { onBack: () => void; onMenu: (rect: DOMRect)
       <main className={styles.content}>
         <GlassCard title="Локация" subtitle={locationName}>
           <div className={styles.text}>Адрес: {locationAddress}</div>
-          {renderTextBlock(content?.event_location_text || fallback.event_location_text)}
+          {renderTextBlock(getSection("Локация", content?.event_location_text || fallback.event_location_text))}
           <div className={styles.mapContainer} ref={mapRef} />
           <button className={styles.secondaryBtn} onClick={() => openLink(locationLink)}>Открыть маршрут</button>
         </GlassCard>
@@ -125,34 +180,33 @@ export function EventScreen(props: { onBack: () => void; onMenu: (rect: DOMRect)
         <GlassCard title="Тайминг">
           {timing.length ? (
             <TimingBlock items={timing} />
+          ) : timingError ? (
+            <div className={styles.text}>Не удалось загрузить расписание.</div>
           ) : (
             <div className={styles.text}>Расписание уточняется.</div>
           )}
         </GlassCard>
 
         <GlassCard title="Дресс-код">
-          {renderTextBlock(content?.dresscode_text || fallback.dresscode_text)}
+          {renderTextBlock(getSection("Дресс-код", content?.dresscode_text || fallback.dresscode_text))}
           <div className={styles.dressGradientBar} />
         </GlassCard>
 
         <GlassCard title="Контакты">
-          {renderTextBlock(content?.contacts_text || fallback.contacts_text)}
-          <div className={styles.text}>
-            TG: <button className={styles.linkBtn} onClick={() => openTelegramLink(contactTg)}>@D_Kapa</button>
-          </div>
+          {renderTextBlock(getSection("Контакты", content?.contacts_text || fallback.contacts_text))}
           <button className={styles.secondaryBtn} onClick={() => copyText(contactPhone)}>Скопировать</button>
         </GlassCard>
 
         <GlassCard title="Подарки">
-          {renderTextBlock(content?.gifts_text || fallback.gifts_text)}
+          {renderTextBlock(getSection("Подарки", content?.gifts_text || fallback.gifts_text))}
         </GlassCard>
         <GlassCard title="Вопросы">
-          {renderTextBlock(content?.faq_text || fallback.faq_text)}
+          {renderTextBlock(getSection("Вопросы", content?.faq_text || fallback.faq_text))}
         </GlassCard>
         <button className={styles.askBtn} onClick={() => setAskOpen(true)}>Задать вопрос</button>
 
         <GlassCard title="Как добавить партнёра">
-          {renderTextBlock(content?.how_to_add_partner_text || fallback.how_to_add_partner_text)}
+          {renderTextBlock(getSection("Как добавить партнёра", content?.how_to_add_partner_text || fallback.how_to_add_partner_text))}
         </GlassCard>
       </main>
 

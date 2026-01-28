@@ -30,27 +30,6 @@ app.include_router(questions.router)
 def _legacy_notice():
     return {"ok": False, "detail": "Use /api/* endpoints"}
 
-app.add_api_route("/auth/telegram", auth.auth_telegram, methods=["POST"])
-app.add_api_route("/profile", profile.get_profile, methods=["GET"])
-app.add_api_route("/profile", profile.upsert_profile, methods=["POST"])
-app.add_api_route("/extra", profile.save_extra, methods=["POST"])
-app.add_api_route("/partner/link", profile.link_partner, methods=["POST"])
-app.add_api_route("/questions", questions.send_question, methods=["POST"])
-app.add_api_route("/family/status", family.family_status, methods=["GET"])
-app.add_api_route("/family/me", family.get_family, methods=["GET"])
-app.add_api_route("/family/save", family.save_family, methods=["POST"])
-app.add_api_route("/family/check-username", family.check_username, methods=["POST"])
-app.add_api_route("/family/invite-by-username", family.invite_by_username, methods=["POST"])
-app.add_api_route("/family/invite-by-name", family.invite_by_name_legacy, methods=["POST"])
-app.add_api_route("/family/invite", family.invite_family, methods=["POST"])
-app.add_api_route("/family/accept", family.accept_invite, methods=["POST"])
-app.add_api_route("/family/invite/{token}", family.invite_info, methods=["GET"])
-app.add_api_route("/family/invites/incoming", family.incoming_invite, methods=["GET"])
-app.add_api_route("/family/remove-partner", family.remove_partner, methods=["POST"])
-app.add_api_route("/family/invite/{token}/accept", family.accept_invite, methods=["POST"])
-app.add_api_route("/family/invite/{token}/decline", family.decline_invite, methods=["POST"])
-app.add_api_route("/family/invite/{token}/cancel", family.cancel_invite, methods=["POST"])
-app.add_api_route("/family/invite-by-username/cancel", family.cancel_invite_by_username, methods=["POST"])
 app.add_api_route("/api/ui-settings", admin.get_ui_settings_public, methods=["GET"])
 
 def _ensure_family_group_column():

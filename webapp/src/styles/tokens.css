@@ -49,6 +49,7 @@
   --font-sm: 18px;
   --font-xs: 16px;
   --anim-ms: 180ms;
+  --bottom-bar-height: 96px;
 
   color-scheme: light;
 }

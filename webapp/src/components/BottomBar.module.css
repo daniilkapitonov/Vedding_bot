@@ -4,6 +4,7 @@
   transform: translateX(-50%);
   bottom: 0;
   width: min(100%, 390px);
+  min-height: var(--bottom-bar-height);
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
