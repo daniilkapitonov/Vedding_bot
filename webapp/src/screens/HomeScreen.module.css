@@ -211,8 +211,11 @@
   opacity: 0.7;
 }
 
-:global(html.kb-open) .stickyAction {
-  display: none;
+.stickyActionInline {
+  padding: 0 var(--page-x);
+  display: grid;
+  gap: 12px;
+  margin-top: 10px;
 }
 
 .confirmText {

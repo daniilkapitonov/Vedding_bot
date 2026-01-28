@@ -12,6 +12,7 @@ import { api, tgInitData, TempProfile, getInviteToken, markWelcomeSeen } from ".
 import coupleImage from "../assets/married-people-v2.png";
 import { Toast } from "../components/Toast";
 import { getTelegramUser, getTelegramUserId } from "../utils/telegram";
+import { isKeyboardOpen, subscribeKeyboardOpen } from "../utils/keyboard";
 
 const WEDDING_ISO = "2026-07-25T16:00:00+03:00";
 
@@ -109,6 +110,7 @@ export function HomeScreen(props: {
   const [showWelcome, setShowWelcome] = useState(false);
   const [welcomeEnabled, setWelcomeEnabled] = useState(true);
   const [forceWelcome, setForceWelcome] = useState(false);
+  const [kbOpen, setKbOpen] = useState(isKeyboardOpen());
   const forceWelcomeRef = useRef(false);
 
   const days = useMemo(() => daysUntil(WEDDING_ISO), []);
@@ -221,6 +223,10 @@ export function HomeScreen(props: {
         setShowWelcome(true);
       }
     }
+  }, []);
+
+  useEffect(() => {
+    return subscribeKeyboardOpen(setKbOpen);
   }, []);
 
   function confirmRsvpChange(next: SegValue) {
@@ -513,45 +519,102 @@ export function HomeScreen(props: {
         </GlassCard>
       </main>
 
-      <div className={styles.stickyAction}>
-        <button
-          className={styles.saveButton}
-          disabled={saving}
-          onClick={() => {
-            const missing = validateProfile();
-            if (missing.length) {
-              setToastVariant("error");
-              setToast(`Заполните: ${missing.join(", ")}`);
-              setTimeout(() => setToast(""), 2200);
-              return;
-            }
-            setShowFirstTime(false);
-            setSaving(true);
-            const tgUserId = getTelegramUserId();
-            const payload: TempProfile = {
-              rsvp: state.rsvp,
-              fullName: state.fullName,
-              full_name: state.fullName,
-              birthDate: state.birthDate,
-              gender: state.gender,
-              phone: state.phone,
-              side: state.side,
-              relative: state.relative,
-              food: state.food,
-              allergies: state.allergies,
-              alcohol: state.alcohol
-            };
-            try {
-              saveLocalProfile(tgUserId, payload);
-              saveProfileToBackend(buildProfilePayload(), "Анкета сохранена");
-            } finally {
-              setTimeout(() => setSaving(false), 300);
-            }
-          }}
-        >
-          {saving ? "Сохраняю..." : "Сохранить анкету"}
-        </button>
-      </div>
+      {kbOpen ? (
+        <div className={styles.stickyActionInline}>
+          <button
+            className={styles.saveButton}
+            disabled={saving}
+            onClick={() => {
+              const missing = validateProfile();
+              if (missing.length) {
+                setToastVariant("error");
+                setToast(`Заполните: ${missing.join(", ")}`);
+                setTimeout(() => setToast(""), 2200);
+                return;
+              }
+              setShowFirstTime(false);
+              setSaving(true);
+              const tgUserId = getTelegramUserId();
+              const payload: TempProfile = {
+                rsvp: state.rsvp,
+                fullName: state.fullName,
+                full_name: state.fullName,
+                birthDate: state.birthDate,
+                gender: state.gender,
+                phone: state.phone,
+                side: state.side,
+                relative: state.relative,
+                food: state.food,
+                allergies: state.allergies,
+                alcohol: state.alcohol
+              };
+              try {
+                saveLocalProfile(tgUserId, payload);
+                saveProfileToBackend(buildProfilePayload(), "Анкета сохранена");
+              } finally {
+                setTimeout(() => setSaving(false), 300);
+              }
+            }}
+          >
+            {saving ? "Сохраняю..." : "Сохранить анкету"}
+          </button>
+          <BottomBar
+            mode="inline"
+            primaryLabel="Моя анкета"
+            secondaryLabel="Информация о мероприятии"
+            onPrimary={() => props.onNavigate("home")}
+            onSecondary={() => props.onNavigate("event")}
+          />
+        </div>
+      ) : (
+        <>
+          <div className={styles.stickyAction}>
+            <button
+              className={styles.saveButton}
+              disabled={saving}
+              onClick={() => {
+                const missing = validateProfile();
+                if (missing.length) {
+                  setToastVariant("error");
+                  setToast(`Заполните: ${missing.join(", ")}`);
+                  setTimeout(() => setToast(""), 2200);
+                  return;
+                }
+                setShowFirstTime(false);
+                setSaving(true);
+                const tgUserId = getTelegramUserId();
+                const payload: TempProfile = {
+                  rsvp: state.rsvp,
+                  fullName: state.fullName,
+                  full_name: state.fullName,
+                  birthDate: state.birthDate,
+                  gender: state.gender,
+                  phone: state.phone,
+                  side: state.side,
+                  relative: state.relative,
+                  food: state.food,
+                  allergies: state.allergies,
+                  alcohol: state.alcohol
+                };
+                try {
+                  saveLocalProfile(tgUserId, payload);
+                  saveProfileToBackend(buildProfilePayload(), "Анкета сохранена");
+                } finally {
+                  setTimeout(() => setSaving(false), 300);
+                }
+              }}
+            >
+              {saving ? "Сохраняю..." : "Сохранить анкету"}
+            </button>
+          </div>
+          <BottomBar
+            primaryLabel="Моя анкета"
+            secondaryLabel="Информация о мероприятии"
+            onPrimary={() => props.onNavigate("home")}
+            onSecondary={() => props.onNavigate("event")}
+          />
+        </>
+      )}
       <Toast message={toast} variant={toastVariant} />
       <ModalSheet
         open={confirmOpen}
@@ -585,12 +648,6 @@ export function HomeScreen(props: {
         </div>
       </ModalSheet>
 
-      <BottomBar
-        primaryLabel="Моя анкета"
-        secondaryLabel="Информация о мероприятии"
-        onPrimary={() => props.onNavigate("home")}
-        onSecondary={() => props.onNavigate("event")}
-      />
     </div>
   );
 }

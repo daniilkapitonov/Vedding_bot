@@ -6,9 +6,11 @@ export function BottomBar(props: {
   secondaryLabel: string;
   onPrimary: () => void;
   onSecondary: () => void;
+  mode?: "fixed" | "inline";
 }) {
+  const modeClass = props.mode === "inline" ? styles.inline : styles.fixed;
   return (
-    <nav className={styles.bar}>
+    <nav className={`${styles.bar} ${modeClass}`}>
       <button className={`${styles.btn} ${styles.btnSecondary}`} onClick={props.onSecondary}>
         {props.secondaryLabel}
       </button>

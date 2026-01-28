@@ -16,9 +16,11 @@ import {
   acceptFamilyInvite,
   declineFamilyInvite,
 } from "../api";
+import { api } from "../api";
 import { Toast } from "../components/Toast";
 import { getTelegramUserId } from "../utils/telegram";
 import { ModalSheet } from "../components/ModalSheet";
+import { isKeyboardOpen, subscribeKeyboardOpen } from "../utils/keyboard";
 
 type Child = { id: string; name: string; age: string; note: string; child_contact?: string | null };
 
@@ -79,6 +81,7 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
   const [members, setMembers] = useState<Array<{ name: string; rsvp: string; telegram_user_id?: number; username?: string }>>([]);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [partnerToRemove, setPartnerToRemove] = useState<{ id?: number; name?: string } | null>(null);
+  const [kbOpen, setKbOpen] = useState(isKeyboardOpen());
   const currentUserId = getTelegramUserId();
 
   const normalizeUsername = (value: string) => {
@@ -177,11 +180,34 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
     const localInvite = loadLocalInvite();
     if (localInvite) setInvite(localInvite);
 
-    refreshFamily();
-
-    getIncomingFamilyInvite()
+    const authWithRetry = async () => {
+      const tries = 3;
+      for (let i = 0; i < tries; i += 1) {
+        try {
+          await api.auth();
+          return true;
+        } catch {
+          await new Promise((r) => setTimeout(r, 350 + i * 250));
+        }
+      }
+      return false;
+    };
+    authWithRetry()
+      .then((ok) => {
+        if (!ok) {
+          setToastVariant("error");
+          setToast("Не удалось авторизоваться. Откройте мини‑приложение ещё раз.");
+          setTimeout(() => setToast(""), 2400);
+        }
+        refreshFamily();
+        return getIncomingFamilyInvite();
+      })
       .then((res: any) => setIncomingInvite(res))
       .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    return subscribeKeyboardOpen(setKbOpen);
   }, []);
 
   const rsvpLabel = (value: string) => {
@@ -540,6 +566,7 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
         </div>
       </ModalSheet>
       <BottomBar
+        mode={kbOpen ? "inline" : "fixed"}
         primaryLabel="Моя анкета"
         secondaryLabel="Информация о мероприятии"
         onPrimary={props.onBack}

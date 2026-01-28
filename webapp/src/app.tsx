@@ -1,12 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { Router } from "./screens/Router";
-import { initTelegram } from "./utils/telegram";
+import { initTelegram, getTelegramDebugInfo } from "./utils/telegram";
 import { api, tgInitData, getInviteToken, getUiSettings } from "./api";
 
 export default function App() {
   const [animEnabled, setAnimEnabled] = useState(true);
   useEffect(() => {
     initTelegram();
+    try {
+      const info = getTelegramDebugInfo();
+      console.info("[TG]", info);
+    } catch {}
     try {
       const cached = localStorage.getItem("wedding.uiSettings");
       if (cached) {
@@ -34,6 +38,7 @@ export default function App() {
   useEffect(() => {
     const root = document.documentElement;
     let kbOpen = false;
+    (window as any).__kbOpen = false;
     const w = window as any;
     const webapp = w?.Telegram?.WebApp;
     const vv = window.visualViewport;
@@ -53,7 +58,9 @@ export default function App() {
       }
       if (open !== kbOpen) {
         kbOpen = open;
+        (window as any).__kbOpen = open;
         root.classList.toggle("kb-open", open);
+        window.dispatchEvent(new CustomEvent("kb-change", { detail: open }));
       }
     };
     const onFocusIn = (e: Event) => {

@@ -45,6 +45,21 @@ export function getTelegramInitData(): string {
   return tg?.initData || "";
 }
 
+export function getTelegramDebugInfo() {
+  const tg = getTelegramWebApp();
+  const unsafe = (tg as any)?.initDataUnsafe || {};
+  const user = unsafe?.user || {};
+  return {
+    hasInitData: Boolean(tg?.initData),
+    initDataLen: tg?.initData ? tg.initData.length : 0,
+    userId: user?.id,
+    username: user?.username,
+    start_param: unsafe?.start_param,
+    chat_type: unsafe?.chat_type,
+    query_id: unsafe?.query_id
+  };
+}
+
 export function initTelegram() {
   const tg = getTelegramWebApp();
   try {
