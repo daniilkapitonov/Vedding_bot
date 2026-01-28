@@ -167,7 +167,7 @@ def render_guests(chat_id: int, page: int = 1, rsvp: str | None = None, q: str |
         text_lines.append(table)
     has_prev = page > 1
     has_next = page * data.get("page_size", 10) < total
-    kb = guests_inline_kb(page, rsvp, q, has_prev, has_next)
+    kb = guests_inline_kb(page, rsvp, q, has_prev, has_next, items)
     bot.send_message(chat_id, "\n".join(text_lines), reply_markup=kb)
     ADMIN_STATE[chat_id] = {"mode": "guests", "page": page, "rsvp": rsvp, "q": q}
 
@@ -347,6 +347,28 @@ def guests_page_cb(c):
     rsvp = rsvp or None
     q = q or None
     render_guests(c.message.chat.id, page=int(page), rsvp=rsvp, q=q)
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("bf:"))
+def best_friend_cb(c):
+    if not is_admin(c.from_user.id):
+        return
+    try:
+        guest_id = int(c.data.split(":", 1)[1])
+    except Exception:
+        bot.answer_callback_query(c.id, "Ошибка", show_alert=False)
+        return
+    res = api_post("/api/admin/best-friend", {"guest_id": guest_id})
+    if not res.ok:
+        bot.answer_callback_query(c.id, "Не удалось обновить", show_alert=False)
+        return
+    bot.answer_callback_query(c.id, "Обновлено", show_alert=False)
+    state = ADMIN_STATE.get(c.message.chat.id, {})
+    render_guests(
+        c.message.chat.id,
+        page=state.get("page", 1),
+        rsvp=state.get("rsvp"),
+        q=state.get("q"),
+    )
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("delete:"))
 def delete_guest_cb(c):

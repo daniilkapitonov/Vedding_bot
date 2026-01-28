@@ -86,6 +86,29 @@ def list_guests(
         })
     return {"items": out, "total": total, "page": page, "page_size": page_size}
 
+@router.post("/best-friend")
+def set_best_friend(
+    body: dict,
+    x_tg_initdata: str | None = Header(default=None),
+    x_internal_secret: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    _assert_admin_or_internal(x_tg_initdata, x_internal_secret)
+    guest_id = body.get("guest_id")
+    if not guest_id:
+        raise HTTPException(400, "Missing guest_id")
+    value = body.get("value")
+    profile = db.query(Profile).filter(Profile.guest_id == int(guest_id)).one_or_none()
+    if not profile:
+        raise HTTPException(404, "Guest not found")
+    if value is None:
+        profile.is_best_friend = not bool(getattr(profile, "is_best_friend", False))
+    else:
+        profile.is_best_friend = bool(value)
+    db.add(profile)
+    db.commit()
+    return {"ok": True, "guest_id": guest_id, "is_best_friend": bool(profile.is_best_friend)}
+
 def _event_content_get(db: Session, key: str, default: str) -> str:
     row = db.query(EventContent).filter(EventContent.key == key).one_or_none()
     if not row:

@@ -20,36 +20,25 @@ Base.metadata.create_all(bind=engine)
 
 app.include_router(auth.router)
 app.include_router(profile.router)
+if hasattr(profile, "legacy_router"):
+    app.include_router(profile.legacy_router)
 app.include_router(event_info.router)
 if hasattr(event_info, "legacy_router"):
     app.include_router(event_info.legacy_router)
 app.include_router(admin.router)
 app.include_router(family.router)
+if hasattr(family, "legacy_router"):
+    app.include_router(family.legacy_router)
 app.include_router(questions.router)
 
 def _legacy_notice():
     return {"ok": False, "detail": "Use /api/* endpoints"}
 
 app.add_api_route("/auth/telegram", auth.auth_telegram, methods=["POST"])
-app.add_api_route("/profile/exists", profile.profile_exists, methods=["GET"])
-app.add_api_route("/profile", profile.get_profile, methods=["GET"])
-app.add_api_route("/profile", profile.upsert_profile, methods=["POST"])
-app.add_api_route("/extra", profile.save_extra, methods=["POST"])
 app.add_api_route("/questions", questions.send_question, methods=["POST"])
 app.add_api_route("/ui-settings", admin.get_ui_settings_public, methods=["GET"])
 app.add_api_route("/event-info/content", event_info.get_event_content, methods=["GET"])
 app.add_api_route("/event-info/timing/me", event_info.get_timing_for_user, methods=["GET"])
-app.add_api_route("/family/me", family.get_family, methods=["GET"])
-app.add_api_route("/family/status", family.family_status, methods=["GET"])
-app.add_api_route("/family/save", family.save_family, methods=["POST"])
-app.add_api_route("/family/check-username", family.check_username, methods=["POST"])
-app.add_api_route("/family/invite-by-username", family.invite_by_username, methods=["POST"])
-app.add_api_route("/family/invite-by-username/cancel", family.cancel_invite_by_username, methods=["POST"])
-app.add_api_route("/family/invites/incoming", family.incoming_invite, methods=["GET"])
-app.add_api_route("/family/invite/{token}/accept", family.accept_invite, methods=["POST"])
-app.add_api_route("/family/invite/{token}/decline", family.decline_invite, methods=["POST"])
-app.add_api_route("/family/remove-partner", family.remove_partner, methods=["POST"])
-app.add_api_route("/family/leave", family.leave_family, methods=["POST"])
 
 app.add_api_route("/api/ui-settings", admin.get_ui_settings_public, methods=["GET"])
 

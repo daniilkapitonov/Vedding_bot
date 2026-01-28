@@ -1,15 +1,22 @@
-.header {
+.wrapper {
   position: sticky;
   top: 0;
   z-index: 30;
-  padding-top: calc(10px + env(safe-area-inset-top));
-  padding-bottom: 10px;
-  padding-left: var(--page-x);
-  padding-right: var(--page-x);
-  background: rgba(55,48,43,0.38);
+  background: var(--header-fill);
   border-bottom: 1px solid rgba(255,255,255,0.12);
   backdrop-filter: blur(var(--blur-header));
   -webkit-backdrop-filter: blur(var(--blur-header));
+}
+
+.safe {
+  height: var(--safe-top);
+}
+
+.header {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  padding-left: var(--page-x);
+  padding-right: var(--page-x);
 }
 
 .row {

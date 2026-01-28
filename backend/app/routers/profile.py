@@ -11,6 +11,7 @@ from ..services.telegram_auth import verify_telegram_init_data, get_guest_from_i
 from ..services.notifier import send_admin_message
 
 router = APIRouter(prefix="/api", tags=["profile"])
+legacy_router = APIRouter(tags=["profile-legacy"])
 logger = logging.getLogger(__name__)
 
 def _guest_from_initdata(initdata: str | None, invite_token: str | None, db: Session) -> Guest:
@@ -287,6 +288,13 @@ async def save_extra(
         except Exception:
             pass
     return get_profile(x_tg_initdata, x_invite_token, db)
+
+# Legacy routes (no /api prefix) for cached clients
+legacy_router.add_api_route("/profile", get_profile, methods=["GET"], response_model=ProfileOut)
+legacy_router.add_api_route("/profile", upsert_profile, methods=["POST"], response_model=ProfileOut)
+legacy_router.add_api_route("/profile/exists", profile_exists, methods=["GET"], response_model=ProfileExistsOut)
+legacy_router.add_api_route("/profile/welcome-seen", mark_welcome_seen, methods=["POST"])
+legacy_router.add_api_route("/extra", save_extra, methods=["POST"], response_model=ProfileOut)
 
 @router.post("/partner/link", response_model=ProfileOut)
 async def link_partner(

@@ -15,6 +15,7 @@ from ..schemas import FamilyAcceptIn, FamilyInviteOut, FamilyStatusOut, FamilySa
 from ..services.notifier import send_admin_message, send_user_message
 
 router = APIRouter(prefix="/api/family", tags=["family"])
+legacy_router = APIRouter(tags=["family-legacy"])
 logger = logging.getLogger(__name__)
 
 
@@ -659,3 +660,16 @@ def invite_info(token: str, db: Session = Depends(get_db)):
         "inviter_name": name,
         "used": bool(invite.used_by_guest_id),
     }
+
+# Legacy routes (no /api prefix) for cached clients
+legacy_router.add_api_route("/family/me", get_family, methods=["GET"], response_model=FamilyOut)
+legacy_router.add_api_route("/family/status", family_status, methods=["GET"], response_model=FamilyStatusOut)
+legacy_router.add_api_route("/family/save", save_family, methods=["POST"], response_model=FamilyOut)
+legacy_router.add_api_route("/family/check-username", check_username, methods=["POST"])
+legacy_router.add_api_route("/family/invite-by-username", invite_by_username, methods=["POST"], response_model=FamilyInviteOut)
+legacy_router.add_api_route("/family/invite-by-username/cancel", cancel_invite_by_username, methods=["POST"])
+legacy_router.add_api_route("/family/invites/incoming", incoming_invite, methods=["GET"], response_model=FamilyIncomingInviteOut)
+legacy_router.add_api_route("/family/invite/{token}/accept", accept_invite, methods=["POST"])
+legacy_router.add_api_route("/family/invite/{token}/decline", decline_invite, methods=["POST"])
+legacy_router.add_api_route("/family/remove-partner", remove_partner, methods=["POST"])
+legacy_router.add_api_route("/family/leave", leave_family, methods=["POST"])

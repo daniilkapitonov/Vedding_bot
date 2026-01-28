@@ -16,8 +16,10 @@ export function FrostedHeader(props: {
   }, []);
 
   return (
-    <header className={styles.header}>
-      <div className={styles.row}>
+    <header className={styles.wrapper}>
+      <div className={styles.safe} />
+      <div className={styles.header}>
+        <div className={styles.row}>
         <button className={styles.iconBtn} onClick={props.onLeft} aria-label="Left action">
           {props.leftIcon}
         </button>
@@ -36,6 +38,7 @@ export function FrostedHeader(props: {
         >
           {props.rightIcon}
         </button>
+        </div>
       </div>
     </header>
   );
