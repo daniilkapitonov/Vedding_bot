@@ -11,6 +11,7 @@
   padding: 12px var(--page-x) calc(16px + env(safe-area-inset-bottom));
   background: transparent;
   backdrop-filter: blur(6px);
+  z-index: 20;
 }
 
 .bar::before {
@@ -49,4 +50,10 @@
 .btnSecondary {
   background: rgba(255,255,255,0.32);
   color: var(--text-secondary);
+}
+
+:global(html.kb-open) .bar {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(140%);
 }

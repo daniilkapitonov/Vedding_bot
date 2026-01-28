@@ -1,6 +1,6 @@
 .page {
   min-height: 100vh;
-  padding-bottom: 110px;
+  padding-bottom: calc(var(--bottom-bar-height) + 120px);
 }
 
 .content {
@@ -8,7 +8,7 @@
   display: flex;
   flex-direction: column;
   gap: calc(var(--gap) + 6px);
-  padding-bottom: calc(56px + var(--bottom-bar-height));
+  padding-bottom: calc(56px + var(--bottom-bar-height) + 32px);
 }
 
 .heroWrap {
@@ -183,12 +183,16 @@
 }
 
 .stickyAction {
-  position: sticky;
-  bottom: calc(var(--bottom-bar-height) + env(safe-area-inset-bottom));
-  padding: 0 var(--page-x) 6px;
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100%, 390px);
+  bottom: calc(var(--bottom-bar-height) + env(safe-area-inset-bottom) + 8px);
+  padding: 0 var(--page-x);
   display: flex;
   justify-content: center;
   background: transparent;
+  z-index: 30;
 }
 
 .saveButton {
@@ -205,6 +209,10 @@
 
 .saveButton:disabled {
   opacity: 0.7;
+}
+
+:global(html.kb-open) .stickyAction {
+  display: none;
 }
 
 .confirmText {

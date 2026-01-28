@@ -87,6 +87,7 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
     v = v.replace(/^https?:\/\/t\.me\//i, "");
     v = v.replace(/^t\.me\//i, "");
     v = v.replace(/^@/g, "");
+    v = v.split("?")[0].split("/")[0].trim();
     return v.toLowerCase();
   };
 
@@ -189,6 +190,8 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
     if (value === "maybe") return "Не знаю";
     return "—";
   };
+  const normalizedPartner = normalizeUsername(state.partnerUsername);
+  const canInvite = Boolean(normalizedPartner);
 
   return (
     <div className={styles.page}>
@@ -310,16 +313,16 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
               </div>
               <input
                 className={styles.input}
-                placeholder="Ник Telegram (например, @username)"
+                placeholder="Ник Telegram или ссылка (t.me/username)"
                 value={state.partnerUsername}
                 onChange={(e) => dispatch({ type: "partner", key: "partnerUsername", value: e.target.value })}
               />
               <div className={styles.inviteRow}>
                 <button
                   className={styles.checkBtn}
-                  disabled={!state.partnerUsername}
+                  disabled={!canInvite}
                   onClick={() => {
-                    const username = normalizeUsername(state.partnerUsername);
+                    const username = normalizedPartner;
                     if (!username) {
                       setToastVariant("error");
                       setToast("Введите ник Telegram");
@@ -356,9 +359,9 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
                 </button>
                 <button
                   className={styles.inviteBtn}
-                  disabled={!state.partnerUsername}
+                  disabled={!canInvite}
                   onClick={() => {
-                    const username = normalizeUsername(state.partnerUsername);
+                    const username = normalizedPartner;
                     if (!username) {
                       setToastVariant("error");
                       setToast("Введите ник Telegram");
@@ -373,15 +376,15 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
                           setTimeout(() => setToast(""), 2200);
                           return;
                         }
-                        setInvite({ status: "sent" });
-                        saveLocalInvite({ status: "sent" });
+                        setInvite({ status: "sent", username });
+                        saveLocalInvite({ status: "sent", username });
                         setToastVariant("ok");
                         setToast("Приглашение отправлено");
                         setTimeout(() => setToast(""), 2000);
                       })
                       .catch((err: any) => {
                         const msg = String(err?.message || "");
-                        if (msg.includes("User not found")) {
+                        if (msg.toLowerCase().includes("not found") || msg.includes("User not found")) {
                           setToastVariant("error");
                           setToast("Пользователь не найден");
                         } else if (msg.includes("Multiple")) {
@@ -402,7 +405,7 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
                 <button
                   className={styles.cancelInviteBtn}
                   onClick={() => {
-                    const username = normalizeUsername(state.partnerUsername);
+                    const username = invite?.username || normalizedPartner;
                     if (!username) {
                       setToastVariant("error");
                       setToast("Введите ник Telegram");
@@ -423,7 +426,7 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
                       });
                   }}
                 >
-                  Отменить приглашение
+                  Удалить
                 </button>
               ) : null}
             </div>
