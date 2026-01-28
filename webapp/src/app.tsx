@@ -28,11 +28,24 @@ export default function App() {
         document.documentElement.style.setProperty("--anim-ms", enabled ? "180ms" : "0ms");
       })
       .catch(() => {});
-    const initData = tgInitData();
     const inviteToken = getInviteToken();
-    if (initData || inviteToken) {
-      api.auth().catch(() => {});
-    }
+    const authWithRetry = async () => {
+      const tries = 4;
+      for (let i = 0; i < tries; i += 1) {
+        const initData = tgInitData();
+        if (initData || inviteToken) {
+          try {
+            await api.auth();
+            return;
+          } catch {
+            // retry
+          }
+        }
+        await new Promise((r) => setTimeout(r, 300 + i * 200));
+      }
+      console.warn("[TG] auth failed: initData missing or invalid");
+    };
+    authWithRetry();
   }, []);
 
   useEffect(() => {
