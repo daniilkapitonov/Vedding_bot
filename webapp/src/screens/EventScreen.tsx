@@ -177,7 +177,7 @@ export function EventScreen(props: { onBack: () => void; onMenu: (rect: DOMRect)
           <button className={styles.secondaryBtn} onClick={() => openLink(locationLink)}>Открыть маршрут</button>
         </GlassCard>
 
-        <GlassCard title="Тайминг">
+        <GlassCard title="Расписание свадьбы">
           {timing.length ? (
             <TimingBlock items={timing} />
           ) : timingError ? (

@@ -2,10 +2,8 @@ import React, { useEffect, useState } from "react";
 import { Router } from "./screens/Router";
 import { initTelegram } from "./utils/telegram";
 import { api, tgInitData, getInviteToken, getUiSettings } from "./api";
-import { LoadingScreen } from "./components/LoadingScreen";
 
 export default function App() {
-  const [showLoading, setShowLoading] = useState(false);
   const [animEnabled, setAnimEnabled] = useState(true);
   useEffect(() => {
     initTelegram();
@@ -29,25 +27,9 @@ export default function App() {
     const initData = tgInitData();
     const inviteToken = getInviteToken();
     if (initData || inviteToken) {
-      (async () => {
-        try {
-          await api.auth();
-        } catch {}
-        try {
-          const existsRes: any = await api.profileExists();
-          const alreadyShown = sessionStorage.getItem("welcomeShown") === "1";
-          if (!existsRes?.exists && !alreadyShown) {
-            setShowLoading(true);
-            sessionStorage.setItem("welcomeShown", "1");
-            setTimeout(() => setShowLoading(false), 5000);
-          }
-        } catch {}
-      })();
+      api.auth().catch(() => {});
     }
   }, []);
 
-  if (showLoading) {
-    return <LoadingScreen animate={animEnabled} />;
-  }
   return <Router />; 
 }

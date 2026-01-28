@@ -30,6 +30,12 @@ app.include_router(questions.router)
 def _legacy_notice():
     return {"ok": False, "detail": "Use /api/* endpoints"}
 
+app.add_api_route("/auth/telegram", auth.auth_telegram, methods=["POST"])
+app.add_api_route("/profile/exists", profile.profile_exists, methods=["GET"])
+app.add_api_route("/ui-settings", admin.get_ui_settings_public, methods=["GET"])
+app.add_api_route("/event-info/content", event_info.get_event_content, methods=["GET"])
+app.add_api_route("/event-info/timing/me", event_info.get_timing_for_user, methods=["GET"])
+
 app.add_api_route("/api/ui-settings", admin.get_ui_settings_public, methods=["GET"])
 
 def _ensure_family_group_column():
