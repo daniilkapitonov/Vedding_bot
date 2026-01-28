@@ -7,6 +7,8 @@ body {
   font-family: ui-sans-serif, system-ui, -apple-system, "SF Pro Display", "SF Pro Text", "Inter", Arial, sans-serif;
   color: var(--tg-text, var(--text-primary));
   font-size: var(--font-base);
+  display: flex;
+  justify-content: center;
   background:
     radial-gradient(1200px 600px at 20% 10%, var(--bg-spot1) 0%, transparent 60%),
     radial-gradient(800px 500px at 80% 80%, var(--bg-spot2) 0%, transparent 65%),
@@ -19,8 +21,9 @@ body {
 #root {
   min-height: 100%;
   width: 100%;
-  max-width: 100%;
-  margin: 0;
+  max-width: 480px;
+  margin: 0 auto;
+  padding-bottom: var(--safe-bottom);
   position: relative;
 }
 
