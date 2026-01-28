@@ -98,7 +98,6 @@ export function HomeScreen(props: {
   onAbout: () => void;
 }) {
   const [state, dispatch] = useReducer(reducer, initialState);
-  const [expanded, setExpanded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState("");
   const [toastVariant, setToastVariant] = useState<"ok" | "error">("ok");
@@ -425,94 +424,83 @@ export function HomeScreen(props: {
 
           {state.rsvp === "no" ? null : (
             <>
-              <button
-                className={styles.moreButton}
-                onClick={() => setExpanded((v) => !v)}
-              >
-                {expanded ? "Свернуть" : "Продолжить заполнение"}
-              </button>
-
-              <div className={`${styles.expandArea} ${expanded ? styles.expandOpen : ""}`}>
-                <div className={styles.expandInner}>
-                  <FormField label="Телефон">
-                    <input
-                      className={styles.input}
-                      inputMode="tel"
-                      placeholder="+7 XXX XXX-XX-XX"
-                      value={state.phone}
-                      onFocus={handlePhoneFocus}
-                      onChange={(e) => {
-                        dirtyRef.current = true;
-                        handlePhoneChange(e.target.value);
-                      }}
-                    />
-                  </FormField>
-                  <FormField label="С чьей стороны">
-                    <select
-                      className={styles.input}
-                      value={state.side}
-                      onChange={(e) => {
-                        dirtyRef.current = true;
-                        dispatch({ type: "field", key: "side", value: e.target.value });
-                      }}
-                    >
-                      <option value="">Выбрать</option>
-                      <option value="groom">Жених</option>
-                      <option value="bride">Невеста</option>
-                      <option value="both">Оба</option>
-                    </select>
-                  </FormField>
-                  <div className={styles.inlineField}>
-                    <input
-                      className={styles.checkbox}
-                      type="checkbox"
-                      checked={state.relative}
-                      onChange={() => {
-                        dirtyRef.current = true;
-                        dispatch({ type: "toggle", key: "relative" });
-                      }}
-                    />
-                    <span>Родственник</span>
-                  </div>
-                  <FormField label="Еда">
-                    <select
-                      className={styles.input}
-                      value={state.food}
-                      onChange={(e) => {
-                        dirtyRef.current = true;
-                        dispatch({ type: "field", key: "food", value: e.target.value });
-                      }}
-                    >
-                      <option value="">Выбрать</option>
-                      <option value="Мясо">Мясо</option>
-                      <option value="Рыба">Рыба</option>
-                      <option value="Вегетарианское">Вегетарианское</option>
-                      <option value="Веган">Веган</option>
-                    </select>
-                  </FormField>
-                  <FormField label="Аллергии/ограничения">
-                    <textarea
-                      className={styles.textarea}
-                      value={state.allergies}
-                      onChange={(e) => {
-                        dirtyRef.current = true;
-                        dispatch({ type: "field", key: "allergies", value: e.target.value });
-                      }}
-                    />
-                  </FormField>
-                  <div className={styles.subSection}>
-                    <div className={styles.subTitle}>Алкоголь (можно несколько)</div>
-                    <ChipsMultiSelect
-                      options={alcoholOptions}
-                      value={state.alcohol}
-                      exclusiveLabel="Не пью алкоголь"
-                      onChange={(next) => {
-                        dirtyRef.current = true;
-                        dispatch({ type: "alcohol", value: next });
-                      }}
-                    />
-                  </div>
-                </div>
+              <FormField label="Телефон">
+                <input
+                  className={styles.input}
+                  inputMode="tel"
+                  placeholder="+7 XXX XXX-XX-XX"
+                  value={state.phone}
+                  onFocus={handlePhoneFocus}
+                  onChange={(e) => {
+                    dirtyRef.current = true;
+                    handlePhoneChange(e.target.value);
+                  }}
+                />
+              </FormField>
+              <FormField label="С чьей стороны">
+                <select
+                  className={styles.input}
+                  value={state.side}
+                  onChange={(e) => {
+                    dirtyRef.current = true;
+                    dispatch({ type: "field", key: "side", value: e.target.value });
+                  }}
+                >
+                  <option value="">Выбрать</option>
+                  <option value="groom">Жених</option>
+                  <option value="bride">Невеста</option>
+                  <option value="both">Оба</option>
+                </select>
+              </FormField>
+              <div className={styles.inlineField}>
+                <input
+                  className={styles.checkbox}
+                  type="checkbox"
+                  checked={state.relative}
+                  onChange={() => {
+                    dirtyRef.current = true;
+                    dispatch({ type: "toggle", key: "relative" });
+                  }}
+                />
+                <span>Родственник</span>
+              </div>
+              <FormField label="Еда">
+                <select
+                  className={styles.input}
+                  value={state.food}
+                  onChange={(e) => {
+                    dirtyRef.current = true;
+                    dispatch({ type: "field", key: "food", value: e.target.value });
+                  }}
+                >
+                  <option value="">Выбрать</option>
+                  <option value="Мясо">Мясо</option>
+                  <option value="Рыба">Рыба</option>
+                  <option value="Вегетарианское">Вегетарианское</option>
+                  <option value="Веган">Веган</option>
+                </select>
+              </FormField>
+              <FormField label="Аллергии/ограничения">
+                <textarea
+                  className={styles.textarea}
+                  value={state.allergies}
+                  onChange={(e) => {
+                    dirtyRef.current = true;
+                    dispatch({ type: "field", key: "allergies", value: e.target.value });
+                  }}
+                />
+              </FormField>
+              <div className={styles.subSection}>
+                <div className={styles.subTitle}>Алкоголь (можно несколько)</div>
+                <ChipsMultiSelect
+                  options={alcoholOptions}
+                  value={state.alcohol}
+                  exclusiveLabel="Не пью алкоголь"
+                  onChange={(next) => {
+                    dirtyRef.current = true;
+                    dispatch({ type: "alcohol", value: next });
+                  }}
+                />
               </div>
             </>
           )}

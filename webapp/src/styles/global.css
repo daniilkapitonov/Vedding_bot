@@ -27,6 +27,19 @@ body {
   padding-top: calc(var(--safe-top) + 8px);
   padding-bottom: calc(var(--safe-bottom) + var(--bottom-bar-height) + 8px);
   position: relative;
+  z-index: 1;
+}
+
+#root::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--safe-top);
+  background: var(--header-fill);
+  pointer-events: none;
+  z-index: 0;
 }
 
 body::before {
