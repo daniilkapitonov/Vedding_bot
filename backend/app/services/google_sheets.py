@@ -41,17 +41,19 @@ def _get_service():
     creds = service_account.Credentials.from_service_account_file(path, scopes=SCOPES)
     return build("sheets", "v4", credentials=creds, cache_discovery=False)
 
-def _sheet_id(service) -> int:
+def _sheet_meta(service) -> tuple[int, bool]:
     meta = service.spreadsheets().get(spreadsheetId=SPREADSHEET_ID).execute()
     for sheet in meta.get("sheets", []):
         props = sheet.get("properties", {})
         if props.get("title") == SHEET_NAME:
-            return int(props.get("sheetId"))
+            sheet_id = int(props.get("sheetId"))
+            banded = bool(sheet.get("bandedRanges"))
+            return sheet_id, banded
     raise RuntimeError("Sheet 'Guest TG' not found")
 
 def ensure_formatting(service) -> None:
     try:
-        sheet_id = _sheet_id(service)
+        sheet_id, has_banding = _sheet_meta(service)
     except Exception as e:
         logger.warning("sheets: cannot get sheet id: %s", e)
         return
@@ -100,18 +102,19 @@ def ensure_formatting(service) -> None:
                 "fields": "pixelSize",
             }
         })
-    # Alternating colors
-    requests.append({
-        "addBanding": {
-            "bandedRange": {
-                "range": {"sheetId": sheet_id, "startRowIndex": 0},
-                "rowProperties": {
-                    "firstBandColor": {"red": 0.98, "green": 0.96, "blue": 0.94},
-                    "secondBandColor": {"red": 0.99, "green": 0.98, "blue": 0.96},
-                },
+    # Alternating colors (only if not already present)
+    if not has_banding:
+        requests.append({
+            "addBanding": {
+                "bandedRange": {
+                    "range": {"sheetId": sheet_id, "startRowIndex": 0},
+                    "rowProperties": {
+                        "firstBandColor": {"red": 0.98, "green": 0.96, "blue": 0.94},
+                        "secondBandColor": {"red": 0.99, "green": 0.98, "blue": 0.96},
+                    },
+                }
             }
-        }
-    })
+        })
     # Filters
     requests.append({
         "setBasicFilter": {

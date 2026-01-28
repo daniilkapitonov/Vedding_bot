@@ -13,6 +13,17 @@ from ..services.sheets_queue import enqueue_sheet_sync
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
+def _as_bool(v) -> bool:
+    if v is None:
+        return False
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, (int, float)):
+        return bool(v)
+    if isinstance(v, str):
+        return v.strip().lower() in ("1", "true", "yes", "y", "t")
+    return False
+
 def _assert_admin_or_internal(initdata: str | None, internal: str | None):
     if internal and internal == settings.INTERNAL_SECRET:
         return
@@ -82,7 +93,7 @@ def list_guests(
             "family_group_id": g.family_group_id,
             "family_members_count": family_counts.get(g.family_group_id or 0, 0) if g.family_group_id else 0,
             "children_count": children_count,
-            "best_friend": bool(getattr(p, "is_best_friend", False)),
+            "best_friend": _as_bool(getattr(p, "is_best_friend", False)),
             "updated_at": g.updated_at.isoformat() if g.updated_at else None,
         })
     return {"items": out, "total": total, "page": page, "page_size": page_size}
