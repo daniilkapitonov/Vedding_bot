@@ -9,7 +9,7 @@ from ..schemas import AdminEventInfoIn, BroadcastIn
 from ..config import settings
 from ..services.telegram_auth import verify_telegram_init_data
 from ..services.notifier import notify_admins, send_admin_message
-from ..services.sheets_queue import enqueue_sheet_sync
+from ..services.sheets_queue import enqueue_sheet_sync, enqueue_delete_guest, enqueue_clear_all
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -285,8 +285,14 @@ def delete_guest(
     guest = db.query(Guest).filter(Guest.id == guest_id).one_or_none()
     if not guest:
         raise HTTPException(404, "Guest not found")
+    telegram_id = guest.telegram_user_id
     db.delete(guest)
     db.commit()
+    if telegram_id:
+        try:
+            enqueue_delete_guest(db, telegram_id, reason="admin_delete")
+        except Exception:
+            pass
     return {"ok": True}
 
 @router.post("/clear-db")
@@ -315,7 +321,61 @@ def clear_db(
     db.query(Guest).delete()
     db.query(FamilyGroup).delete()
     db.commit()
+    try:
+        enqueue_clear_all(db, reason="admin_clear")
+    except Exception:
+        pass
     return counts
+
+@router.post("/best-friend/set")
+def best_friend_set(
+    body: dict,
+    x_tg_initdata: str | None = Header(default=None),
+    x_internal_secret: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    _assert_admin_or_internal(x_tg_initdata, x_internal_secret)
+    guest_id = body.get("guest_id")
+    if not guest_id:
+        raise HTTPException(400, "Missing guest_id")
+    profile = db.query(Profile).filter(Profile.guest_id == int(guest_id)).one_or_none()
+    if not profile:
+        raise HTTPException(404, "Guest not found")
+    profile.is_best_friend = True
+    db.add(profile)
+    db.commit()
+    try:
+        g = db.query(Guest).filter(Guest.id == int(guest_id)).one_or_none()
+        if g:
+            enqueue_sheet_sync(db, g.telegram_user_id, reason="best_friend")
+    except Exception:
+        pass
+    return {"ok": True, "guest_id": guest_id, "is_best_friend": True}
+
+@router.post("/best-friend/unset")
+def best_friend_unset(
+    body: dict,
+    x_tg_initdata: str | None = Header(default=None),
+    x_internal_secret: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    _assert_admin_or_internal(x_tg_initdata, x_internal_secret)
+    guest_id = body.get("guest_id")
+    if not guest_id:
+        raise HTTPException(400, "Missing guest_id")
+    profile = db.query(Profile).filter(Profile.guest_id == int(guest_id)).one_or_none()
+    if not profile:
+        raise HTTPException(404, "Guest not found")
+    profile.is_best_friend = False
+    db.add(profile)
+    db.commit()
+    try:
+        g = db.query(Guest).filter(Guest.id == int(guest_id)).one_or_none()
+        if g:
+            enqueue_sheet_sync(db, g.telegram_user_id, reason="best_friend")
+    except Exception:
+        pass
+    return {"ok": True, "guest_id": guest_id, "is_best_friend": False}
 
 @router.get("/notification-settings")
 def get_notification_settings(

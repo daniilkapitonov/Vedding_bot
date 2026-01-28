@@ -1,16 +1,22 @@
 import time
 import logging
+import os
+import sqlite3
 from datetime import datetime
 from sqlalchemy.orm import Session
 
 from ..db import SessionLocal
 from ..models import SheetSyncJob, Guest, Profile, FamilyProfile
-from ..services.google_sheets import _get_service, ensure_formatting, upsert_row, to_row
+from ..services.google_sheets import _get_service, ensure_formatting, upsert_row, to_row, delete_row_by_telegram_id, clear_sheet_data
 
 logger = logging.getLogger(__name__)
 
 POLL_SECONDS = 5
 MAX_ATTEMPTS = 5
+BACKUP_EVERY_SECONDS = 24 * 60 * 60
+BACKUP_KEEP = 14
+BACKUP_DIR = "/app/backups"
+DB_PATH = "/app/data/app.db"
 
 def _children_string(fp: FamilyProfile | None) -> str:
     if not fp or not fp.children_json:
@@ -67,14 +73,51 @@ def _process_job(db: Session, job: SheetSyncJob) -> None:
             if data:
                 upsert_row(service, to_row(data))
         return
+    if job.type == "clear_all":
+        clear_sheet_data(service)
+        ensure_formatting(service)
+        return
+    if job.type == "delete_guest":
+        if job.telegram_id:
+            delete_row_by_telegram_id(service, job.telegram_id)
+        return
     if job.telegram_id:
         data = _load_guest(db, job.telegram_id)
         if data:
             upsert_row(service, to_row(data))
 
+def _maybe_backup(last_backup_ts: float | None) -> float | None:
+    now = time.time()
+    if last_backup_ts and now - last_backup_ts < BACKUP_EVERY_SECONDS:
+        return last_backup_ts
+    os.makedirs(BACKUP_DIR, exist_ok=True)
+    ts = time.strftime("%Y-%m-%d_%H%M", time.gmtime(now))
+    dest = os.path.join(BACKUP_DIR, f"app_{ts}.db")
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute(f"VACUUM INTO '{dest}'")
+        conn.close()
+        logger.info("db backup created: %s", dest)
+    except Exception as e:
+        logger.warning("db backup failed: %s", str(e))
+        return last_backup_ts
+    try:
+        files = [f for f in os.listdir(BACKUP_DIR) if f.startswith("app_") and f.endswith(".db")]
+        files = sorted(files, key=lambda f: os.path.getmtime(os.path.join(BACKUP_DIR, f)), reverse=True)
+        for f in files[BACKUP_KEEP:]:
+            try:
+                os.remove(os.path.join(BACKUP_DIR, f))
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return now
+
 def main():
     logger.info("Google Sheets worker started")
+    last_backup = None
     while True:
+        last_backup = _maybe_backup(last_backup)
         db = SessionLocal()
         try:
             job = (

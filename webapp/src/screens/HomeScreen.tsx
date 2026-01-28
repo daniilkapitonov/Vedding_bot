@@ -271,7 +271,7 @@ export function HomeScreen(props: {
     };
   }
 
-  async function saveProfileToBackend(payload: any, successMsg: string) {
+  async function saveProfileToBackend(payload: any, successMsg: string): Promise<boolean> {
     try {
       const initData = tgInitData();
       const inviteToken = getInviteToken();
@@ -281,12 +281,47 @@ export function HomeScreen(props: {
       await api.saveProfile(payload);
       setToastVariant("ok");
       setToast(successMsg);
+      return true;
     } catch (e: any) {
       const msg = String(e?.message || "");
       setToastVariant("error");
       setToast(msg.includes("NO_INITDATA") ? "Откройте через Telegram" : msg || "Не удалось сохранить");
+      return false;
     } finally {
       setTimeout(() => setToast(""), 2000);
+    }
+  }
+
+  async function performSave(): Promise<boolean> {
+    const missing = validateProfile();
+    if (missing.length) {
+      setToastVariant("error");
+      setToast(`Заполните: ${missing.join(", ")}`);
+      setTimeout(() => setToast(""), 2200);
+      return false;
+    }
+    setShowFirstTime(false);
+    setSaving(true);
+    const tgUserId = getTelegramUserId();
+    const payload: TempProfile = {
+      rsvp: state.rsvp,
+      fullName: state.fullName,
+      full_name: state.fullName,
+      birthDate: state.birthDate,
+      gender: state.gender,
+      phone: state.phone,
+      side: state.side,
+      relative: state.relative,
+      food: state.food,
+      allergies: state.allergies,
+      alcohol: state.alcohol,
+      has_plus_one_requested: state.hasPlusOneRequested,
+    };
+    try {
+      saveLocalProfile(tgUserId, payload);
+      return await saveProfileToBackend(buildProfilePayload(), "Анкета сохранена");
+    } finally {
+      setTimeout(() => setSaving(false), 300);
     }
   }
 
@@ -539,7 +574,13 @@ export function HomeScreen(props: {
                   <div className={styles.plusOneLabel}>Буду с +1</div>
                   <div className={styles.plusOneHint}>Если выбрано — добавьте +1 в разделе «Семья».</div>
                   {plusOneChecked && !hasPartner ? (
-                    <button className={styles.plusOneLink} onClick={() => props.onNavigate("family")}>
+                    <button
+                      className={styles.plusOneLink}
+                      onClick={async () => {
+                        const ok = await performSave();
+                        if (ok) props.onNavigate("family");
+                      }}
+                    >
                       Перейти в «Семья»
                     </button>
                   ) : null}
@@ -555,38 +596,7 @@ export function HomeScreen(props: {
           <button
             className={styles.saveButton}
             disabled={saving}
-            onClick={() => {
-              const missing = validateProfile();
-              if (missing.length) {
-                setToastVariant("error");
-                setToast(`Заполните: ${missing.join(", ")}`);
-                setTimeout(() => setToast(""), 2200);
-                return;
-              }
-              setShowFirstTime(false);
-              setSaving(true);
-              const tgUserId = getTelegramUserId();
-              const payload: TempProfile = {
-                rsvp: state.rsvp,
-                fullName: state.fullName,
-                full_name: state.fullName,
-                birthDate: state.birthDate,
-                gender: state.gender,
-                phone: state.phone,
-                side: state.side,
-                relative: state.relative,
-                food: state.food,
-                allergies: state.allergies,
-                alcohol: state.alcohol,
-                has_plus_one_requested: state.hasPlusOneRequested,
-              };
-              try {
-                saveLocalProfile(tgUserId, payload);
-                saveProfileToBackend(buildProfilePayload(), "Анкета сохранена");
-              } finally {
-                setTimeout(() => setSaving(false), 300);
-              }
-            }}
+            onClick={performSave}
           >
             {saving ? "Сохраняю..." : "Сохранить анкету"}
           </button>
@@ -604,38 +614,7 @@ export function HomeScreen(props: {
             <button
               className={styles.saveButton}
               disabled={saving}
-              onClick={() => {
-                const missing = validateProfile();
-                if (missing.length) {
-                  setToastVariant("error");
-                  setToast(`Заполните: ${missing.join(", ")}`);
-                  setTimeout(() => setToast(""), 2200);
-                  return;
-                }
-                setShowFirstTime(false);
-                setSaving(true);
-                const tgUserId = getTelegramUserId();
-                const payload: TempProfile = {
-                  rsvp: state.rsvp,
-                  fullName: state.fullName,
-                  full_name: state.fullName,
-                  birthDate: state.birthDate,
-                  gender: state.gender,
-                  phone: state.phone,
-                  side: state.side,
-                  relative: state.relative,
-                  food: state.food,
-                  allergies: state.allergies,
-                  alcohol: state.alcohol,
-                  has_plus_one_requested: state.hasPlusOneRequested,
-                };
-                try {
-                  saveLocalProfile(tgUserId, payload);
-                  saveProfileToBackend(buildProfilePayload(), "Анкета сохранена");
-                } finally {
-                  setTimeout(() => setSaving(false), 300);
-                }
-              }}
+              onClick={performSave}
             >
               {saving ? "Сохраняю..." : "Сохранить анкету"}
             </button>

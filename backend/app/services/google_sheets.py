@@ -134,6 +134,42 @@ def _read_rows(service) -> list[list[str]]:
     ).execute()
     return res.get("values", []) or []
 
+def delete_row_by_telegram_id(service, telegram_id: int) -> bool:
+    rows = _read_rows(service)
+    target_row_idx = None
+    for i, r in enumerate(rows, start=2):
+        if r and str(r[0]) == str(telegram_id):
+            target_row_idx = i
+            break
+    if not target_row_idx:
+        return False
+    sheet_id, _ = _sheet_meta(service)
+    service.spreadsheets().batchUpdate(
+        spreadsheetId=SPREADSHEET_ID,
+        body={
+            "requests": [
+                {
+                    "deleteDimension": {
+                        "range": {
+                            "sheetId": sheet_id,
+                            "dimension": "ROWS",
+                            "startIndex": target_row_idx - 1,
+                            "endIndex": target_row_idx,
+                        }
+                    }
+                }
+            ]
+        },
+    ).execute()
+    return True
+
+def clear_sheet_data(service) -> None:
+    service.spreadsheets().values().clear(
+        spreadsheetId=SPREADSHEET_ID,
+        range=f"{SHEET_NAME}!A2:Q",
+        body={},
+    ).execute()
+
 def upsert_row(service, row: list[str]) -> None:
     # row[0] is telegram_id
     rows = _read_rows(service)

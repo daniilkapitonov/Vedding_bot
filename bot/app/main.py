@@ -237,6 +237,11 @@ def admin_delete_guest(m: Message):
     bot.send_message(m.chat.id, "Введите ID гостя или текст для поиска.")
     ADMIN_STATE[m.chat.id] = {"mode": "delete_lookup"}
 
+@bot.message_handler(func=lambda m: is_admin(m.from_user.id) and m.text == "Лучший друг")
+def admin_best_friend(m: Message):
+    bot.send_message(m.chat.id, "Введите ID гостя для отметки «Лучший друг».")
+    ADMIN_STATE[m.chat.id] = {"mode": "best_friend_input"}
+
 @bot.message_handler(func=lambda m: is_admin(m.from_user.id) and m.text == "DB Health")
 def admin_db_health(m: Message):
     res = api_get("/api/admin/db-health")
@@ -348,27 +353,28 @@ def guests_page_cb(c):
     q = q or None
     render_guests(c.message.chat.id, page=int(page), rsvp=rsvp, q=q)
 
-@bot.callback_query_handler(func=lambda c: c.data.startswith("bf:"))
-def best_friend_cb(c):
+@bot.callback_query_handler(func=lambda c: c.data.startswith("bf_set:") or c.data.startswith("bf_unset:"))
+def best_friend_set_unset_cb(c):
     if not is_admin(c.from_user.id):
         return
+    action, gid = c.data.split(":", 1)
     try:
-        guest_id = int(c.data.split(":", 1)[1])
+        guest_id = int(gid)
     except Exception:
         bot.answer_callback_query(c.id, "Ошибка", show_alert=False)
         return
-    res = api_post("/api/admin/best-friend", {"guest_id": guest_id})
+    path = "/api/admin/best-friend/set" if action == "bf_set" else "/api/admin/best-friend/unset"
+    res = api_post(path, {"guest_id": guest_id})
     if not res.ok:
         bot.answer_callback_query(c.id, "Не удалось обновить", show_alert=False)
         return
     bot.answer_callback_query(c.id, "Обновлено", show_alert=False)
-    state = ADMIN_STATE.get(c.message.chat.id, {})
-    render_guests(
-        c.message.chat.id,
-        page=state.get("page", 1),
-        rsvp=state.get("rsvp"),
-        q=state.get("q"),
-    )
+    try:
+        is_best = bool(res.json().get("is_best_friend"))
+    except Exception:
+        is_best = False
+    status = "⭐ включён" if is_best else "⭐ выключен"
+    bot.send_message(c.message.chat.id, f"Гость #{guest_id} обновлён ({status}).")
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("delete:"))
 def delete_guest_cb(c):
@@ -435,6 +441,9 @@ def admin_text_router(m: Message):
     if m.text == "Очистить базу":
         admin_clear_db(m)
         return
+    if m.text == "Лучший друг":
+        admin_best_friend(m)
+        return
     if m.text in (SYS_OFF_LABEL, SYS_ON_LABEL):
         admin_toggle_notifications(m)
         return
@@ -493,6 +502,18 @@ def admin_text_router(m: Message):
             bot.send_message(m.chat.id, f"Удалить гостя #{guest_id}?", reply_markup=kb)
         else:
             render_guests(m.chat.id, page=1, q=text)
+        return
+    if mode == "best_friend_input":
+        text = m.text.strip()
+        if not text.isdigit():
+            bot.send_message(m.chat.id, "Нужен числовой ID гостя.")
+            return
+        guest_id = int(text)
+        kb = InlineKeyboardMarkup()
+        kb.add(InlineKeyboardButton("Сделать лучшим другом", callback_data=f"bf_set:{guest_id}"))
+        kb.add(InlineKeyboardButton("Убрать лучший друг", callback_data=f"bf_unset:{guest_id}"))
+        bot.send_message(m.chat.id, f"Гость #{guest_id}: выберите действие", reply_markup=kb)
+        ADMIN_STATE.pop(m.chat.id, None)
         return
 
 @bot.message_handler(content_types=["photo"])

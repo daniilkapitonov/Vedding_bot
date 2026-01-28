@@ -6,8 +6,8 @@ def admin_kb(system_enabled: bool = False, animations_enabled: bool = True):
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     kb.row(KeyboardButton("Гости"), KeyboardButton("✏️ Редактировать инфо о событии"))
     kb.row(KeyboardButton("⏱ Редактировать тайминг"), KeyboardButton(label))
-    kb.row(KeyboardButton(anim_label), KeyboardButton("Очистить базу"))
-    kb.row(KeyboardButton("Удалить гостя"), KeyboardButton("DB Health"))
+    kb.row(KeyboardButton("Лучший друг"), KeyboardButton(anim_label))
+    kb.row(KeyboardButton("Очистить базу"), KeyboardButton("Удалить гостя"), KeyboardButton("DB Health"))
     return kb
 
 def admin_main_kb(system_enabled: bool = False, animations_enabled: bool = True):
@@ -16,8 +16,8 @@ def admin_main_kb(system_enabled: bool = False, animations_enabled: bool = True)
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     kb.row(KeyboardButton("Гости"), KeyboardButton("✏️ Редактировать инфо о событии"))
     kb.row(KeyboardButton("⏱ Редактировать тайминг"), KeyboardButton(label))
-    kb.row(KeyboardButton(anim_label), KeyboardButton("Очистить базу"))
-    kb.row(KeyboardButton("Удалить гостя"), KeyboardButton("DB Health"))
+    kb.row(KeyboardButton("Лучший друг"), KeyboardButton(anim_label))
+    kb.row(KeyboardButton("Очистить базу"), KeyboardButton("Удалить гостя"), KeyboardButton("DB Health"))
     return kb
 
 def guests_inline_kb(page: int, rsvp: str | None, q: str | None, has_prev: bool, has_next: bool, items: list[dict] | None = None):
@@ -28,12 +28,6 @@ def guests_inline_kb(page: int, rsvp: str | None, q: str | None, has_prev: bool,
         InlineKeyboardButton("Не приду", callback_data="guests:no"),
         InlineKeyboardButton("Не знаю", callback_data="guests:maybe"),
     )
-    if items:
-        for it in items:
-            gid = it.get("guest_id")
-            if gid:
-                mark = "⭐" if it.get("best_friend") else "☆"
-                kb.row(InlineKeyboardButton(f"{mark} #{gid}", callback_data=f"bf:{gid}"))
     nav = []
     if has_prev:
         nav.append(InlineKeyboardButton("←", callback_data=f"guests_page:{page-1}:{rsvp or ''}:{q or ''}"))
