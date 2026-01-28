@@ -13,8 +13,16 @@ export function getInviteToken(): string {
   }
 }
 
-const rawBase = (import.meta as any).env?.VITE_API_URL || "";
+const rawBase = (import.meta as any).env?.VITE_API_URL || "/api";
 const API_BASE = rawBase.endsWith("/") ? rawBase.slice(0, -1) : rawBase;
+
+function buildUrl(path: string) {
+  if (!API_BASE) return path;
+  if (API_BASE.endsWith("/api") && path.startsWith("/api/")) {
+    return `${API_BASE}${path.slice(4)}`;
+  }
+  return `${API_BASE}${path}`;
+}
 
 async function parseError(res: Response): Promise<string> {
   try {
@@ -42,7 +50,7 @@ async function parseError(res: Response): Promise<string> {
 async function req(path: string, method: string, body?: any) {
   const initData = tgInitData();
   const inviteToken = initData ? "" : getInviteToken();
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(buildUrl(path), {
     method,
     headers: {
       "Content-Type": "application/json",
@@ -64,7 +72,7 @@ export const api = {
   auth: async (initData?: string) => {
     const resolvedInitData = initData || tgInitData();
     const inviteToken = resolvedInitData ? "" : getInviteToken();
-    const res = await fetch(`${API_BASE}/api/auth/telegram`, {
+    const res = await fetch(buildUrl("/api/auth/telegram"), {
       method: "POST",
       headers: {
         "Content-Type":"application/json",
@@ -87,7 +95,7 @@ export const api = {
   saveProfile: (payload: any) => req("/api/profile", "POST", payload),
   saveExtra: (payload: any) => req("/api/extra", "POST", payload),
   linkPartner: (payload: any) => req("/api/partner/link", "POST", payload),
-  eventInfo: () => fetch(`${API_BASE}/api/event`).then(r=>r.json()),
+  eventInfo: () => fetch(buildUrl("/api/event")).then(r=>r.json()),
   eventContent: () => req("/api/event-info/content", "GET"),
   eventTimingMe: () => req("/api/event-info/timing/me", "GET"),
 };
@@ -173,7 +181,7 @@ export async function sendQuestion(text: string) {
 }
 
 export async function getUiSettings() {
-  return fetch(`${API_BASE}/api/ui-settings`).then((r) => r.json());
+  return fetch(buildUrl("/api/ui-settings")).then((r) => r.json());
 }
 
 export async function markWelcomeSeen() {

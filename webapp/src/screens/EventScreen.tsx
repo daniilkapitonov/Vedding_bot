@@ -8,6 +8,7 @@ import { BottomBar } from "../components/bottombar";
 import { Toast } from "../components/Toast";
 import { openLink, openTelegramLink } from "../utils/telegram";
 import { sendQuestion, api } from "../api";
+import { TimingBlock } from "../components/TimingBlock";
 
 const WEDDING_ISO = "2026-07-25T16:00:00+03:00";
 
@@ -26,6 +27,14 @@ export function EventScreen(props: { onBack: () => void; onMenu: (rect: DOMRect)
   const locationLink = "https://yandex.ru/maps/-/CLhPUAjv";
   const contactPhone = "+7 (906) 775-29-69";
   const contactTg = "https://t.me/D_Kapa";
+  const fallback = {
+    dresscode_text: "Тёплые нейтральные оттенки, пастельные акценты.",
+    contacts_text: "Организатор: +7 (906) 775-29-69, TG: @D_Kapa",
+    gifts_text: "Лучший подарок — вклад в наше путешествие или сертификат.",
+    faq_text: "Можно ли взять +1? — Да, укажите в разделе “Семья”.\nЕсть ли дресс-код? — Тёплые нейтральные оттенки.\nМожно ли фото? — Конечно, будем рады.",
+    how_to_add_partner_text: "Откройте раздел «Семья» и отправьте приглашение по Telegram нику (@username).",
+    event_location_text: "",
+  };
 
   async function copyText(value: string) {
     try {
@@ -108,35 +117,26 @@ export function EventScreen(props: { onBack: () => void; onMenu: (rect: DOMRect)
       <main className={styles.content}>
         <GlassCard title="Локация" subtitle={locationName}>
           <div className={styles.text}>Адрес: {locationAddress}</div>
-          {renderTextBlock(content?.event_location_text)}
+          {renderTextBlock(content?.event_location_text || fallback.event_location_text)}
           <div className={styles.mapContainer} ref={mapRef} />
           <button className={styles.secondaryBtn} onClick={() => openLink(locationLink)}>Открыть маршрут</button>
         </GlassCard>
 
         <GlassCard title="Тайминг">
-          <div className={styles.timeline}>
-            {(timing.length ? timing : [
-              { time: "16:00", title: "Сбор гостей" },
-              { time: "17:00", title: "Церемония" },
-              { time: "18:00", title: "Банкет" },
-              { time: "21:30", title: "Торт" },
-            ]).map((item) => (
-              <div key={`${item.time}-${item.title}`} className={styles.timeRow}>
-                <span className={styles.timeDot} />
-                <span className={styles.timeBadge}>{item.time}</span>
-                <span>{item.title}</span>
-              </div>
-            ))}
-          </div>
+          {timing.length ? (
+            <TimingBlock items={timing} />
+          ) : (
+            <div className={styles.text}>Расписание уточняется.</div>
+          )}
         </GlassCard>
 
         <GlassCard title="Дресс-код">
-          {renderTextBlock(content?.dresscode_text)}
+          {renderTextBlock(content?.dresscode_text || fallback.dresscode_text)}
           <div className={styles.dressGradientBar} />
         </GlassCard>
 
         <GlassCard title="Контакты">
-          {renderTextBlock(content?.contacts_text)}
+          {renderTextBlock(content?.contacts_text || fallback.contacts_text)}
           <div className={styles.text}>
             TG: <button className={styles.linkBtn} onClick={() => openTelegramLink(contactTg)}>@D_Kapa</button>
           </div>
@@ -144,15 +144,15 @@ export function EventScreen(props: { onBack: () => void; onMenu: (rect: DOMRect)
         </GlassCard>
 
         <GlassCard title="Подарки">
-          {renderTextBlock(content?.gifts_text)}
+          {renderTextBlock(content?.gifts_text || fallback.gifts_text)}
         </GlassCard>
         <GlassCard title="Вопросы">
-          {renderTextBlock(content?.faq_text)}
+          {renderTextBlock(content?.faq_text || fallback.faq_text)}
         </GlassCard>
         <button className={styles.askBtn} onClick={() => setAskOpen(true)}>Задать вопрос</button>
 
         <GlassCard title="Как добавить партнёра">
-          {renderTextBlock(content?.how_to_add_partner_text)}
+          {renderTextBlock(content?.how_to_add_partner_text || fallback.how_to_add_partner_text)}
         </GlassCard>
       </main>
 

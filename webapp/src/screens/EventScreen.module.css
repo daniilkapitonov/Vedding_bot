@@ -77,7 +77,14 @@
   margin-top: 10px;
   height: 12px;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(239,210,186,0.6), rgba(231,210,192,0.6), rgba(226,197,178,0.6), rgba(235,205,185,0.6));
+  background: linear-gradient(
+    90deg,
+    rgba(245,206,188,0.35),
+    rgba(210,224,206,0.35),
+    rgba(221,210,232,0.35),
+    rgba(236,216,200,0.35),
+    rgba(242,204,214,0.35)
+  );
 }
 
 .textBlock {

@@ -217,21 +217,6 @@ def invite_family(m: Message):
 def admin_guests(m: Message):
     render_guests(m.chat.id, page=1)
 
-@bot.message_handler(func=lambda m: is_admin(m.from_user.id) and m.text == "Инфо о мероприятии")
-def admin_event_info(m: Message):
-    res = api_get("/api/admin/event")
-    if not res.ok:
-        detail = (res.text or "").strip()
-        msg = "Не удалось получить информацию."
-        if detail:
-            msg = f"{msg}\n{detail[:120]}"
-        bot.send_message(m.chat.id, msg)
-        return
-    data = res.json()
-    bot.send_message(m.chat.id, f"<b>Текущее инфо:</b>\n{data.get('content','')}")
-    bot.send_message(m.chat.id, "Отправьте новый текст для обновления.")
-    ADMIN_STATE[m.chat.id] = {"mode": "edit_event"}
-
 @bot.message_handler(func=lambda m: is_admin(m.from_user.id) and m.text == "✏️ Редактировать инфо о событии")
 def admin_event_content(m: Message):
     kb = InlineKeyboardMarkup()
@@ -415,7 +400,6 @@ def admin_text_router(m: Message):
         render_guests(m.chat.id, page=1)
         return
     if m.text == "Инфо о мероприятии":
-        admin_event_info(m)
         return
     if m.text == "✏️ Редактировать инфо о событии":
         admin_event_content(m)
