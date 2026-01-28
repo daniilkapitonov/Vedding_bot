@@ -720,7 +720,12 @@ legacy_router.add_api_route("/family/save", save_family, methods=["POST"], respo
 legacy_router.add_api_route("/family/check-username", check_username, methods=["POST"])
 legacy_router.add_api_route("/family/invite-by-username", invite_by_username, methods=["POST"], response_model=FamilyInviteOut)
 legacy_router.add_api_route("/family/invite-by-username/cancel", cancel_invite_by_username, methods=["POST"])
-legacy_router.add_api_route("/family/invites/incoming", incoming_invite, methods=["GET"], response_model=FamilyIncomingInviteOut)
+legacy_router.add_api_route(
+    "/family/invites/incoming",
+    incoming_invite,
+    methods=["GET"],
+    response_model=FamilyIncomingInviteOut | None,
+)
 legacy_router.add_api_route("/family/invite/{token}/accept", accept_invite, methods=["POST"])
 legacy_router.add_api_route("/family/invite/{token}/decline", decline_invite, methods=["POST"])
 legacy_router.add_api_route("/family/remove-partner", remove_partner, methods=["POST"])
