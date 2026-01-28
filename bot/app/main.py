@@ -7,7 +7,7 @@ import telebot
 from telebot.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 
 from .config import BOT_TOKEN, ADMIN_IDS, WEBAPP_URL, API_BASE_URL, INTERNAL_SECRET
-from .keyboards import main_kb, admin_kb, admin_main_kb, guests_inline_kb
+from .keyboards import admin_kb, admin_main_kb, guests_inline_kb
 
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
 app = Flask(__name__)
@@ -185,12 +185,12 @@ def start(m: Message):
     if is_admin(m.from_user.id):
         enabled = get_system_notifications_enabled(m.from_user.id)
         ui = get_ui_settings()
-        reply = admin_main_kb(WEBAPP_URL, enabled, bool(ui.get("ui_animations_enabled", True)))
+        reply = admin_main_kb(enabled, bool(ui.get("ui_animations_enabled", True)))
     else:
-        reply = main_kb(WEBAPP_URL)
+        reply = None
     bot.send_message(
         m.chat.id,
-        "Привет! Это свадебный бот.\nОткройте приложение и заполните анкету.",
+        "Привет! Это свадебный бот.\nОткройте приложение через кнопку в чате.",
         reply_markup=reply
     )
 

@@ -1,9 +1,4 @@
-from telebot.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton
-
-def main_kb(webapp_url: str):
-    kb = ReplyKeyboardMarkup(resize_keyboard=True)
-    kb.add(KeyboardButton("Открыть свадебное приложение", web_app=WebAppInfo(url=webapp_url)))
-    return kb
+from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
 def admin_kb(system_enabled: bool = False, animations_enabled: bool = True):
     label = "🔕 Отключить системные уведомления" if system_enabled else "🔔 Включить системные уведомления"
@@ -17,11 +12,10 @@ def admin_kb(system_enabled: bool = False, animations_enabled: bool = True):
     kb.add(KeyboardButton("Очистить базу"))
     return kb
 
-def admin_main_kb(webapp_url: str, system_enabled: bool = False, animations_enabled: bool = True):
+def admin_main_kb(system_enabled: bool = False, animations_enabled: bool = True):
     label = "🔕 Отключить системные уведомления" if system_enabled else "🔔 Включить системные уведомления"
     anim_label = "✨ Анимации: ВКЛ" if animations_enabled else "✨ Анимации: ВЫКЛ"
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
-    kb.add(KeyboardButton("Открыть свадебное приложение", web_app=WebAppInfo(url=webapp_url)))
     kb.add(KeyboardButton("Гости"))
     kb.add(KeyboardButton("✏️ Редактировать инфо о событии"), KeyboardButton("⏱ Редактировать тайминг"))
     kb.row(KeyboardButton("Удалить гостя"), KeyboardButton("DB Health"))
