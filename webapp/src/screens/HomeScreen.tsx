@@ -27,6 +27,7 @@ type State = {
   food: string;
   allergies: string;
   alcohol: string[];
+  hasPlusOneRequested: boolean;
 };
 
 type Action =
@@ -34,6 +35,7 @@ type Action =
   | { type: "field"; key: keyof State; value: string }
   | { type: "toggle"; key: "relative" }
   | { type: "alcohol"; value: string[] }
+  | { type: "plusone"; value: boolean }
   | { type: "hydrate"; value: Partial<State> };
 
 const initialState: State = {
@@ -47,6 +49,7 @@ const initialState: State = {
   food: "",
   allergies: "",
   alcohol: [],
+  hasPlusOneRequested: false,
 };
 
 const alcoholOptions = [
@@ -67,6 +70,8 @@ function reducer(state: State, action: Action): State {
       return { ...state, relative: !state.relative };
     case "alcohol":
       return { ...state, alcohol: action.value };
+    case "plusone":
+      return { ...state, hasPlusOneRequested: action.value };
     case "hydrate":
       return { ...state, ...action.value };
     default:
@@ -111,6 +116,7 @@ export function HomeScreen(props: {
   const [forceWelcome, setForceWelcome] = useState(false);
   const [kbOpen, setKbOpen] = useState(isKeyboardOpen());
   const forceWelcomeRef = useRef(false);
+  const [hasPartner, setHasPartner] = useState(false);
 
   const days = useMemo(() => daysUntil(WEDDING_ISO), []);
   const rsvpStatus =
@@ -125,6 +131,8 @@ export function HomeScreen(props: {
       : state.rsvp === "no"
         ? "Спасибо, что сообщили. Мы всё понимаем."
         : "Ничего страшного — можно изменить решение позже.";
+  const plusOneChecked = hasPartner || state.hasPlusOneRequested;
+  const plusOneDisabled = hasPartner;
 
   useEffect(() => {
     const tgUser = getTelegramUser();
@@ -142,7 +150,8 @@ export function HomeScreen(props: {
         relative: Boolean(local.relative),
         food: local.food || "",
         allergies: local.allergies || "",
-        alcohol
+        alcohol,
+        hasPlusOneRequested: Boolean(local.has_plus_one_requested),
       }});
       if (local.rsvp === "yes" || local.rsvp === "no" || local.rsvp === "maybe") {
         setRsvpTouched(true);
@@ -203,8 +212,18 @@ export function HomeScreen(props: {
             relative: Boolean(remote.is_relative),
             food: remote.food_pref || "",
             allergies: remote.food_allergies || "",
-            alcohol
+            alcohol,
+            hasPlusOneRequested: Boolean(remote.has_plus_one_requested || remote.plus_one_partner_username),
           }});
+          try {
+            const fam: any = await api.familyStatus();
+            const members = Array.isArray(fam?.members) ? fam.members : [];
+            const has = members.length >= 2;
+            setHasPartner(has);
+            if (has) {
+              dispatch({ type: "plusone", value: true });
+            }
+          } catch {}
         } catch {}
       })();
     }
@@ -247,7 +266,8 @@ export function HomeScreen(props: {
       is_relative: state.relative,
       food_pref: state.food || null,
       food_allergies: state.allergies || null,
-      alcohol_prefs: alcohol
+      alcohol_prefs: alcohol,
+      has_plus_one_requested: state.hasPlusOneRequested,
     };
   }
 
@@ -278,7 +298,8 @@ export function HomeScreen(props: {
       rsvp: next,
       fullName: state.fullName,
       full_name: state.fullName,
-      phone: state.phone
+      phone: state.phone,
+      has_plus_one_requested: state.hasPlusOneRequested,
     };
     dispatch({ type: "rsvp", value: next });
     setConfirmOpen(false);
@@ -502,6 +523,28 @@ export function HomeScreen(props: {
                   }}
                 />
               </div>
+              <div className={styles.plusOneRow}>
+                <input
+                  className={styles.checkbox}
+                  type="checkbox"
+                  checked={plusOneChecked}
+                  disabled={plusOneDisabled}
+                  onChange={(e) => {
+                    if (plusOneDisabled) return;
+                    dirtyRef.current = true;
+                    dispatch({ type: "plusone", value: e.target.checked });
+                  }}
+                />
+                <div>
+                  <div className={styles.plusOneLabel}>Буду с +1</div>
+                  <div className={styles.plusOneHint}>Если выбрано — добавьте +1 в разделе «Семья».</div>
+                  {plusOneChecked && !hasPartner ? (
+                    <button className={styles.plusOneLink} onClick={() => props.onNavigate("family")}>
+                      Перейти в «Семья»
+                    </button>
+                  ) : null}
+                </div>
+              </div>
             </>
           )}
         </GlassCard>
@@ -534,7 +577,8 @@ export function HomeScreen(props: {
                 relative: state.relative,
                 food: state.food,
                 allergies: state.allergies,
-                alcohol: state.alcohol
+                alcohol: state.alcohol,
+                has_plus_one_requested: state.hasPlusOneRequested,
               };
               try {
                 saveLocalProfile(tgUserId, payload);
@@ -582,7 +626,8 @@ export function HomeScreen(props: {
                   relative: state.relative,
                   food: state.food,
                   allergies: state.allergies,
-                  alcohol: state.alcohol
+                  alcohol: state.alcohol,
+                  has_plus_one_requested: state.hasPlusOneRequested,
                 };
                 try {
                   saveLocalProfile(tgUserId, payload);

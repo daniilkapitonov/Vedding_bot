@@ -43,6 +43,9 @@ class Profile(Base):
     side: Mapped[str | None] = mapped_column(String(16), nullable=True)    # groom/bride/both
     is_relative: Mapped[bool] = mapped_column(Boolean, default=False)
     is_best_friend: Mapped[bool] = mapped_column(Boolean, default=False)
+    has_plus_one_requested: Mapped[bool] = mapped_column(Boolean, default=False)
+    plus_one_partner_username: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    plus_one_invite_sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     food_pref: Mapped[str | None] = mapped_column(String(16), nullable=True)  # fish/meat/vegan
     food_allergies: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -145,4 +148,15 @@ class AppSettings(Base):
     __tablename__ = "app_settings"
     key: Mapped[str] = mapped_column(String(64), primary_key=True)
     value: Mapped[str] = mapped_column(String(32))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class SheetSyncJob(Base):
+    __tablename__ = "sheet_sync_jobs"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    type: Mapped[str] = mapped_column(String(32), default="sync_guest")  # sync_guest | sync_all
+    telegram_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String(16), default="pending")  # pending/processing/done/failed
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    payload: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

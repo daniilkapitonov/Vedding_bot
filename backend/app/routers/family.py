@@ -13,6 +13,7 @@ from ..config import settings
 from ..services.telegram_auth import verify_telegram_init_data, get_guest_from_invite
 from ..schemas import FamilyAcceptIn, FamilyInviteOut, FamilyStatusOut, FamilySaveIn, FamilyOut, FamilyInviteByUsernameIn, FamilyCheckUsernameIn, FamilyIncomingInviteOut, FamilyRemovePartnerIn
 from ..services.notifier import send_admin_message, send_user_message
+from ..services.sheets_queue import enqueue_sheet_sync
 
 router = APIRouter(prefix="/api/family", tags=["family"])
 legacy_router = APIRouter(tags=["family-legacy"])
@@ -88,6 +89,10 @@ def invite_family(
     )
     db.add(invite)
     db.commit()
+    try:
+        enqueue_sheet_sync(db, guest.telegram_user_id, reason="family_save")
+    except Exception:
+        pass
     return FamilyInviteOut(token=token)
 
 
@@ -437,6 +442,16 @@ async def accept_invite(
     if not invitee_name:
         invitee_name = f"{guest.first_name or ''} {guest.last_name or ''}".strip() or "Гость"
     if inviter:
+        inviter_profile = db.query(Profile).filter(Profile.guest_id == inviter.id).one_or_none()
+        if inviter_profile:
+            inviter_profile.has_plus_one_requested = True
+            inviter_profile.plus_one_partner_username = guest.username
+            db.add(inviter_profile)
+        if guest.profile:
+            guest.profile.has_plus_one_requested = True
+            guest.profile.plus_one_partner_username = inviter.username
+            db.add(guest.profile)
+        db.commit()
         try:
             await send_user_message(
                 inviter.telegram_user_id,
@@ -444,6 +459,12 @@ async def accept_invite(
             )
         except Exception:
             pass
+    try:
+        enqueue_sheet_sync(db, guest.telegram_user_id, reason="family_accept")
+        if inviter:
+            enqueue_sheet_sync(db, inviter.telegram_user_id, reason="family_accept")
+    except Exception:
+        pass
     return {"ok": True, "family_group_id": guest.family_group_id}
 
 @router.post("/invite/{token}/decline")
@@ -478,6 +499,12 @@ async def decline_invite(
             )
         except Exception:
             pass
+    try:
+        enqueue_sheet_sync(db, guest.telegram_user_id, reason="family_decline")
+        if inviter:
+            enqueue_sheet_sync(db, inviter.telegram_user_id, reason="family_decline")
+    except Exception:
+        pass
     return {"ok": True}
 
 @router.post("/invite/{token}/cancel")
@@ -571,6 +598,14 @@ async def remove_partner(
     group_id = guest.family_group_id
     guest.family_group_id = None
     partner.family_group_id = None
+    if guest.profile:
+        guest.profile.plus_one_partner_username = None
+        guest.profile.has_plus_one_requested = False
+        db.add(guest.profile)
+    if partner.profile:
+        partner.profile.plus_one_partner_username = None
+        partner.profile.has_plus_one_requested = False
+        db.add(partner.profile)
     db.add(guest)
     db.add(partner)
     # cancel pending invites for this group
@@ -589,6 +624,11 @@ async def remove_partner(
         )
     except Exception:
         pass
+    try:
+        enqueue_sheet_sync(db, guest.telegram_user_id, reason="family_remove")
+        enqueue_sheet_sync(db, partner.telegram_user_id, reason="family_remove")
+    except Exception:
+        pass
     return {"ok": True}
 
 @router.post("/leave")
@@ -603,6 +643,10 @@ async def leave_family(
     group_id = guest.family_group_id
     # remove requester
     guest.family_group_id = None
+    if guest.profile:
+        guest.profile.plus_one_partner_username = None
+        guest.profile.has_plus_one_requested = False
+        db.add(guest.profile)
     db.add(guest)
     db.commit()
     # cancel pending invites for this group
@@ -615,6 +659,10 @@ async def leave_family(
     if len(remaining) <= 1:
         for g in remaining:
             g.family_group_id = None
+            if g.profile:
+                g.profile.plus_one_partner_username = None
+                g.profile.has_plus_one_requested = False
+                db.add(g.profile)
             db.add(g)
         db.query(FamilyGroup).filter(FamilyGroup.id == group_id).delete()
     db.commit()
@@ -628,6 +676,10 @@ async def leave_family(
             )
         except Exception:
             pass
+    try:
+        enqueue_sheet_sync(db, guest.telegram_user_id, reason="family_leave")
+    except Exception:
+        pass
     return {"ok": True, "family_group_id": None}
 
 # legacy alias

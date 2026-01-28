@@ -159,6 +159,36 @@
   color: var(--text-muted);
 }
 
+.plusOneRow {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.plusOneLabel {
+  font-size: 15px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.plusOneHint {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.plusOneLink {
+  margin-top: 6px;
+  height: 34px;
+  border-radius: var(--r-pill);
+  border: 1px solid rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.22);
+  color: var(--text-secondary);
+  font-weight: 600;
+  padding: 0 12px;
+}
+
 .moreButton {
   margin: 14px auto 0;
   height: 46px;

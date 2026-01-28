@@ -9,6 +9,7 @@ from ..schemas import AdminEventInfoIn, BroadcastIn
 from ..config import settings
 from ..services.telegram_auth import verify_telegram_init_data
 from ..services.notifier import notify_admins, send_admin_message
+from ..services.sheets_queue import enqueue_sheet_sync
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -107,6 +108,12 @@ def set_best_friend(
         profile.is_best_friend = bool(value)
     db.add(profile)
     db.commit()
+    try:
+        g = db.query(Guest).filter(Guest.id == int(guest_id)).one_or_none()
+        if g:
+            enqueue_sheet_sync(db, g.telegram_user_id, reason="best_friend")
+    except Exception:
+        pass
     return {"ok": True, "guest_id": guest_id, "is_best_friend": bool(profile.is_best_friend)}
 
 def _event_content_get(db: Session, key: str, default: str) -> str:

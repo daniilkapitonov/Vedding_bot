@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     INTERNAL_SECRET: str = "change_me"
     ALLOW_DEV_AUTH: bool = False
     DEV_USER_ID: int = 1
+    GOOGLE_SA_JSON_PATH: str | None = None
 
     @property
     def admin_id_set(self) -> set[int]:

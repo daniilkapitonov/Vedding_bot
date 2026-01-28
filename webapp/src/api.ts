@@ -112,6 +112,7 @@ export type TempProfile = {
   food?: string;
   allergies?: string;
   alcohol?: string[];
+  has_plus_one_requested?: boolean;
 };
 
 export type FamilyPayload = {

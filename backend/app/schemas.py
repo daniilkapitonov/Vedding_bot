@@ -25,6 +25,7 @@ class ProfileIn(BaseModel):
     food_allergies: Optional[str] = None
 
     alcohol_prefs: List[str] = []
+    has_plus_one_requested: Optional[bool] = None
 
 class ProfileOut(BaseModel):
     rsvp_status: str
@@ -49,6 +50,8 @@ class ProfileOut(BaseModel):
     extra_fact: Optional[str] = None
     welcome_seen_at: Optional[str] = None
     is_best_friend: Optional[bool] = None
+    has_plus_one_requested: Optional[bool] = None
+    plus_one_partner_username: Optional[str] = None
 
 class ProfileExistsOut(BaseModel):
     exists: bool

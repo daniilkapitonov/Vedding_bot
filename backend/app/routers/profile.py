@@ -8,7 +8,8 @@ from ..models import Guest, Profile, ChangeLog
 from ..schemas import ProfileIn, ProfileOut, ExtraIn, PartnerLinkIn, ProfileExistsOut
 from ..config import settings
 from ..services.telegram_auth import verify_telegram_init_data, get_guest_from_invite
-from ..services.notifier import send_admin_message
+from ..services.notifier import send_admin_message, send_user_message
+from ..services.sheets_queue import enqueue_sheet_sync
 
 router = APIRouter(prefix="/api", tags=["profile"])
 legacy_router = APIRouter(tags=["profile-legacy"])
@@ -103,6 +104,8 @@ def get_profile(
         side=p.side,
         is_relative=p.is_relative,
         is_best_friend=p.is_best_friend,
+        has_plus_one_requested=p.has_plus_one_requested,
+        plus_one_partner_username=p.plus_one_partner_username,
         food_pref=p.food_pref,
         food_allergies=p.food_allergies,
         alcohol_prefs=_split_csv(p.alcohol_prefs_csv),
@@ -155,10 +158,13 @@ async def upsert_profile(
         "food_allergies": p.food_allergies,
         "alcohol_prefs": _split_csv(p.alcohol_prefs_csv),
         "phone": guest.phone,
+        "has_plus_one_requested": p.has_plus_one_requested,
     }
 
     # RSVP=No => only store minimal and lock in UI logic
     p.rsvp_status = body.rsvp_status
+    if body.has_plus_one_requested is not None:
+        p.has_plus_one_requested = bool(body.has_plus_one_requested)
 
     # Basic fields
     for field, value in [
@@ -191,6 +197,7 @@ async def upsert_profile(
         "food_allergies": p.food_allergies,
         "alcohol_prefs": _split_csv(p.alcohol_prefs_csv),
         "phone": guest.phone,
+        "has_plus_one_requested": p.has_plus_one_requested,
     }
     labels = {
         "rsvp_status": "RSVP",
@@ -203,11 +210,34 @@ async def upsert_profile(
         "food_allergies": "Аллергии",
         "alcohol_prefs": "Алкоголь",
         "phone": "Телефон",
+        "has_plus_one_requested": "+1",
     }
     changes = _diff(before, after, labels)
     for label, old, new in changes:
         db.add(ChangeLog(guest_id=guest.id, field=label, old_value=old, new_value=new))
     db.commit()
+
+    # enqueue sheet sync (non-blocking)
+    try:
+        enqueue_sheet_sync(db, guest.telegram_user_id, reason="profile_save")
+    except Exception:
+        pass
+
+    # Send +1 invite reminder once per save when enabled
+    if before.get("has_plus_one_requested") is False and p.has_plus_one_requested:
+        try:
+            name = p.full_name or f"{guest.first_name or ''} {guest.last_name or ''}".strip() or "Гость"
+            msg = (
+                f"{name} приглашает вас пойти с ним/ней на свадьбу Капитоновых 💍\n"
+                f"Дата: 25.07.2026\n"
+                f"Откройте приглашение и заполните анкету: https://t.me/kapa_vedding_bot/welcome_to_wedding"
+            )
+            await send_user_message(guest.telegram_user_id, msg)
+            p.plus_one_invite_sent_at = datetime.utcnow()
+            db.add(p)
+            db.commit()
+        except Exception:
+            pass
 
     if changes:
         try:

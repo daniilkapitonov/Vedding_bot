@@ -83,6 +83,7 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
   const [partnerToRemove, setPartnerToRemove] = useState<{ id?: number; name?: string } | null>(null);
   const [kbOpen, setKbOpen] = useState(isKeyboardOpen());
   const currentUserId = getTelegramUserId();
+  const [plusOneRequested, setPlusOneRequested] = useState(false);
 
   const normalizeUsername = (value: string) => {
     let v = (value || "").trim();
@@ -199,6 +200,9 @@ export function FamilyScreen(props: { onBack: () => void; onMenu: (rect: DOMRect
           setToast("Не удалось авторизоваться. Откройте мини‑приложение ещё раз.");
           setTimeout(() => setToast(""), 2400);
         }
+        api.getProfile().then((p: any) => {
+          setPlusOneRequested(Boolean(p?.has_plus_one_requested));
+        }).catch(() => {});
         refreshFamily();
         return getIncomingFamilyInvite();
       })

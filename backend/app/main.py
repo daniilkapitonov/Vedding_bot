@@ -57,6 +57,12 @@ def _ensure_family_group_column():
             conn.execute(text("ALTER TABLE profiles ADD COLUMN welcome_seen_at DATETIME"))
         if "is_best_friend" not in col_names:
             conn.execute(text("ALTER TABLE profiles ADD COLUMN is_best_friend BOOLEAN DEFAULT 0"))
+        if "has_plus_one_requested" not in col_names:
+            conn.execute(text("ALTER TABLE profiles ADD COLUMN has_plus_one_requested BOOLEAN DEFAULT 0"))
+        if "plus_one_partner_username" not in col_names:
+            conn.execute(text("ALTER TABLE profiles ADD COLUMN plus_one_partner_username VARCHAR(64)"))
+        if "plus_one_invite_sent_at" not in col_names:
+            conn.execute(text("ALTER TABLE profiles ADD COLUMN plus_one_invite_sent_at DATETIME"))
 
         cols = conn.execute(text("PRAGMA table_info(invite_tokens)")).fetchall()
         col_names = {row[1] for row in cols}
