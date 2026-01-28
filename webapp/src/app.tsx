@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Router } from "./screens/Router";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { initTelegram, getTelegramDebugInfo } from "./utils/telegram";
 import { api, tgInitData, getInviteToken, getUiSettings } from "./api";
 
@@ -110,5 +111,9 @@ export default function App() {
     };
   }, [animEnabled]);
 
-  return <Router />; 
+  return (
+    <ErrorBoundary>
+      <Router />
+    </ErrorBoundary>
+  ); 
 }

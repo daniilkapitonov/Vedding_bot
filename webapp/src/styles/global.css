@@ -9,6 +9,7 @@ body {
   font-size: var(--font-base);
   display: flex;
   justify-content: center;
+  align-items: stretch;
   background:
     radial-gradient(1200px 600px at 20% 10%, var(--bg-spot1) 0%, transparent 60%),
     radial-gradient(800px 500px at 80% 80%, var(--bg-spot2) 0%, transparent 65%),
@@ -23,7 +24,8 @@ body {
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
-  padding-bottom: var(--safe-bottom);
+  padding-top: calc(var(--safe-top) + 8px);
+  padding-bottom: calc(var(--safe-bottom) + var(--bottom-bar-height) + 8px);
   position: relative;
 }
 

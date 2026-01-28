@@ -50,8 +50,8 @@
   --font-xs: 16px;
   --anim-ms: 180ms;
   --bottom-bar-height: 96px;
-  --safe-top: env(safe-area-inset-top);
-  --safe-bottom: env(safe-area-inset-bottom);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 
   color-scheme: light;
 }
